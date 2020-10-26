@@ -1,0 +1,615 @@
+﻿section Microsoft365Lighthouse;
+
+// Global variables
+
+authorize_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize";
+client_id = Text.FromBinary(Extension.Contents("client_id"));
+graph_endpoint = "https://graph.microsoft.com";
+logout_uri = "https://login.microsoftonline.com/logout.srf";
+redirect_uri = "https://oauth.powerbi.com/views/oauthredirect.html";
+token_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/token";
+version = "0.0.1";
+
+// Data Source Kind description
+
+Microsoft365Lighthouse = [
+    Authentication = [
+        OAuth = [
+            FinishLogin = FinishLogin,
+            Logout = Logout,
+            Refresh = Refresh,
+            StartLogin = StartLogin
+        ]
+    ]
+];
+
+// Data Source UI publishing description
+
+Microsoft365Lighthouse.Publish = [
+    Beta = true,
+    Category = "Other",
+    ButtonText = { Extension.LoadString("ButtonTitle"), Extension.LoadString("ButtonHelp") },
+    LearnMoreUrl = "https://github.com/microsoft/microsoft365-lighthouse-bi",
+    SourceImage = Microsoft365Lighthouse.Icons,
+    SourceTypeImage = Microsoft365Lighthouse.Icons
+];
+
+Microsoft365Lighthouse.Icons = [
+    Icon16 = { Extension.Contents("Connector16.png"), Extension.Contents("Connector20.png"), Extension.Contents("Connector24.png"), Extension.Contents("Connector32.png") },
+    Icon32 = { Extension.Contents("Connector32.png"), Extension.Contents("Connector40.png"), Extension.Contents("Connector48.png"), Extension.Contents("Connector64.png") }
+];
+
+Microsoft365Lighthouse.Type = type function (
+        friendlyName as (type text meta [
+            Documentation.FieldCaption = "Connection Friendly Name",
+            Documentation.FieldDescription = "A friendly name to identify your tenant",
+            Documentation.SampleValues = {"Contoso - US, Contoso - EMEA, or Contoso APAC"}
+        ])
+    ) 
+    as table meta [
+        Documentation.Name = Extension.LoadString("DataSourceLabel"),
+        Documentation.LongDescription = Extension.LoadString("DataSourceLabel"),
+        Documentation.Icon = Extension.Contents("Connector32.png")
+    ];
+
+// Authentication 
+
+FinishLogin = (context, callbackUri, state) =>
+    let
+        parts = Uri.Parts(callbackUri)[Query],
+        result = if (Record.HasFields(parts, {"error", "error_description"})) then 
+                    error Error.Record(parts[error], parts[error_description], parts)
+                 else
+                    TokenMethod(token_uri, "authorization_code", "code", parts[code])
+    in
+        result;
+
+GetAccessToken = (optional tenantId as text, optional scope as text) =>
+    let 
+        authResult = if (tenantId <> null) then 
+            TokenMethod("https://login.microsoftonline.com/" & tenantId & "/oauth2/v2.0/token", "refresh_token", "refresh_token", Extension.CurrentCredential()[refresh_token], scope)
+        else
+            TokenMethod(token_uri, "refresh_token", "refresh_token", Extension.CurrentCredential()[refresh_token], scope)
+    in 
+        authResult[access_token];
+
+Logout = (token) => logout_uri;
+
+Refresh = (resourceUrl, refresh_token) => TokenMethod(token_uri, "refresh_token", "refresh_token", refresh_token);
+
+StartLogin = (resourceUrl, state, display) =>
+    let
+        authorizeUrl = authorize_uri & "?" & Uri.BuildQueryString([
+            client_id = client_id,  
+            redirect_uri = redirect_uri,
+            state = state,
+            scope = "offline_access https://graph.microsoft.com/.default",
+            response_type = "code",
+            response_mode = "query",
+            login = "login",
+            acr_values = "urn:microsoft:policies:mfa"
+        ])
+    in
+        [
+            LoginUri = authorizeUrl,
+            CallbackUri = redirect_uri,
+            WindowHeight = 860,
+            WindowWidth = 1024,
+            Context = null
+        ];
+
+TokenMethod = (tokenUri, grantType, tokenField, parameter, optional scope as text) =>
+    let
+        queryString = [
+            client_id = client_id,
+            scope = if (scope <> null) then scope else "offline_access https://graph.microsoft.com/.default",
+            grant_type = grantType,
+            redirect_uri = redirect_uri
+        ],
+        queryWithCode = Record.AddField(queryString, tokenField, parameter),
+
+        tokenResponse = Web.Contents(tokenUri, [
+            Content = Text.ToBinary(Uri.BuildQueryString(queryWithCode)),
+            Headers = [
+                #"Content-type" = "application/x-www-form-urlencoded",
+                #"Accept" = "application/json"
+            ],
+            ManualStatusHandling = {400, 401, 403} 
+        ]),
+        body = Json.Document(tokenResponse),
+        result = if (Record.HasFields(body, {"error", "error_description"})) then 
+                    error Error.Record(body[error], body[error_description], body)
+                 else
+                    body
+    in 
+        result;
+
+ConditionalAccessPolicies = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("conditionalAccessPolicy", schemaOnly, tenants, "v1.0", true, "/v1.0/identity/conditionalAccess/policies", query, schema, metadata)
+    in 
+        result;
+
+Contracts = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("contract", schemaOnly, {}, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
+    in
+        result;
+
+CredentialUserRegistrationDetails = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("credentialUserRegistrationDetails", schemaOnly, tenants, "beta", true, "/beta/reports/credentialUserRegistrationDetails", query, schema, metadata)
+    in
+        result;
+
+Devices = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("device", schemaOnly, tenants, "v1.0", true, "/v1.0/devices", query, schema, metadata)
+    in
+        result;
+
+Domains = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("domain", schemaOnly, tenants, "v1.0", true, "/v1.0/domains", query, schema, metadata)
+    in
+        result;
+
+// Device Management 
+
+DetectedMalwareState = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("windowsDeviceMalwareState", schemaOnly, tenants, "beta", true, "/v1.0/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))", query, null, metadata, "tenantId = text, deviceId = text", (input as table) => 
+            let 
+                renamedColumns = Table.RenameColumns(input, {"id", "deviceId"}, MissingField.Ignore),
+                requests = Table.AddColumn(renamedColumns, "secMgmtInsightsRequest", each graph_endpoint & "/beta/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
+                output = Rest.Feed(requests, true)
+            in 
+                output)
+    in 
+        result;
+
+ManagedDevices = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("managedDevice", schemaOnly, tenants, "beta", true, "/beta/deviceManagement/managedDevices", query, schema, metadata)
+    in
+        result;
+
+RemoteActionAudits = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("remoteActionAudit", schemaOnly, tenants, "beta", true, "/beta/deviceManagement/remoteActionAudits", query, schema, metadata)
+    in 
+        result;
+
+// Entities
+
+EntityTable = #table({"Entity", "Action"}, {
+    { "Alerts", Alerts },
+    { "ConditionalAccessPolicies", ConditionalAccessPolicies },
+    { "Contracts", Contracts },
+    { "CredentialUserRegistrationDetails", CredentialUserRegistrationDetails },
+    { "DetectedMalwareState", DetectedMalwareState },
+    { "Domains", Domains },
+    { "Devices", Devices },
+    { "ManagedDevices", ManagedDevices },
+    { "RemoteActionAudits", RemoteActionAudits },
+    { "RiskDetections", RiskDetections },
+    { "SecureScore", SecureScore },
+    { "SecureScoreControlProfiles", SecureScoreControlProfiles }
+});
+
+GetActionForEntity = (entity as text) =>
+    try 
+        EntityTable{[Entity = entity]}[Action]
+     otherwise
+         let
+             message = Text.Format("Could not find entity: '#{0}'", {entity})
+         in
+             Diagnostics.Trace(TraceLevel.Error, message, () => error message, true);
+
+// Extensions
+
+Diagnostics = Extension.LoadFunction("Diagnostics.pqm");
+
+Diagnostics.LogValue = Diagnostics[LogValue];
+Diagnostics.LogFailure = Diagnostics[LogFailure];
+Diagnostics.WrapHandlers = Diagnostics[WrapHandlers];
+
+Extension.LoadFunction = (name as text) =>
+    let
+        binary = Extension.Contents(name),
+        asText = Text.FromBinary(binary)
+    in
+        Expression.Evaluate(asText, #shared);
+
+Schema = Extension.LoadFunction("Schema.pqm");
+
+Schema.GetKnownType = Schema[GetKnownType];
+
+Table.ChangeType = Extension.LoadFunction("Table.ChangeType.pqm");
+Table.GenerateByPage = Extension.LoadFunction("Table.GenerateByPage.pqm");
+Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
+
+// Helper
+
+Graph.BuildRequests = (tenants as list, relativeUrl as text, optional query as text) =>
+    let 
+        request = if(query = null or query = "") then 
+            Uri.Combine(graph_endpoint, relativeUrl)
+        else if(Text.Contains(relativeUrl, "?")) then 
+            Uri.Combine(graph_endpoint, relativeUrl) & "&" & Text.AfterDelimiter(query, "?")
+        else 
+            Uri.Combine(graph_endpoint, relativeUrl) & query,
+
+        data = #table({"tenantId", "secMgmtInsightsScope", "secMgmtInsightsRequest"}, {{tenants, "https://graph.microsoft.com/.default", request}}),
+        expandedList = Table.ExpandListColumn(data, "tenantId")
+    in 
+        expandedList;
+
+Request.GetData = (resource as text, schemaOnly as logical, tenants as list, version as text, isPaged as logical, relativeUrl as text, optional query, optional schema as type, optional metadata, optional additionalSchema as text, optional func as function) =>
+    let
+        result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = version]}[Value], resource, if(additionalSchema <> null) then additionalSchema else "tenantId = text")
+            else 
+                let
+                    requests = Graph.BuildRequests(tenants, relativeUrl, query),
+                    data = Rest.Feed(requests, isPaged, schema),
+                    output = if(func <> null) then func(data) else data
+                in 
+                    output
+    in 
+        result;
+
+// Identity Protection 
+
+RiskDetections = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("riskDetection", schemaOnly, tenants, "beta", true, "/beta/identityProtection/riskDetections", query, schema, metadata)
+    in 
+        result;
+
+// Intelligent Security Graph
+
+Alerts = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("alert", schemaOnly, tenants, "v1.0", true, "/v1.0/security/alerts", query, schema, metadata)
+    in 
+        result;
+
+SecureScore = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("secureScore", schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScores", query, schema, metadata)
+    in 
+        result;
+
+SecureScoreControlProfiles = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("secureScoreControlProfile", schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
+    in
+        result;
+
+// Navigation 
+        
+[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
+shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
+
+NavigationTable = (friendlyName as text) as table =>
+    let
+        tenants = null, 
+
+        GetMetadata = (version as text) =>
+            let
+                data = Web.Contents(Uri.Combine(graph_endpoint, version & "/$metadata")), 
+                buffered = Binary.Buffer(data), 
+                metadata = Xml.Tables(buffered){0}[DataServices]{0}[#"http://docs.oasis-open.org/odata/ns/edm"]{0}[Schema]
+            in 
+                metadata,
+
+        listOfTenants = if(tenants <> null and not List.IsEmpty(tenants)) then 
+                tenants
+            else 
+                Rest.GetPages(graph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken())[customerId],
+
+        metadata = #table({"Version", "Value"}, {
+            { "beta", GetMetadata("beta") },
+            { "v1.0", GetMetadata("v1.0") }
+        }),
+
+        // Use our schema table as the source of top level items in the navigation tree
+        entities = Table.SelectColumns(EntityTable, {"Entity"}),
+        rename = Table.RenameColumns(entities, {{"Entity", "Name"}}),
+        // Add Data as a calculated column
+        withData = Table.AddColumn(rename, "Data", each View([Name], metadata, listOfTenants), type table),
+        // Add ItemKind and ItemName as fixed text values
+        withItemKind = Table.AddColumn(withData, "ItemKind", each "Table", type text),
+        withItemName = Table.AddColumn(withItemKind, "ItemName", each "Table", type text),
+        // Indicate that the node should not be expandable
+        withIsLeaf = Table.AddColumn(withItemName, "IsLeaf", each true, type logical),
+        // Generate the nav table
+        navTable = Table.ToNavigationTable(withIsLeaf, {"Name"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+    in
+        navTable;
+
+View = (entity as text, metadata as table, tenants as list) as table =>
+    let
+        // Implementation of Table.View handlers.
+        //
+        // We wrap the record with Diagnostics.WrapHandlers() to get some automatic
+        // tracing if a handler returns an error.
+        //
+        View = (state as record) => Table.View(null, Diagnostics.WrapHandlers([
+
+            // Returns the table type returned by GetRows()
+            GetType = () => CalculateSchema(state),
+
+            // Called last - retrieves the data from the calculated URL
+            GetRows = () => 
+                let
+                    finalSchema = CalculateSchema(state),
+                    finalUrl = CalculateUrl(state),
+                    // TODO - Need to change var finalUrl to query because the URL is calculated in another function downstream
+                    result = GetActionForEntity(entity)(tenants, false, finalUrl, finalSchema),
+                    appliedType = Table.ChangeType(result, finalSchema)
+                in
+                    appliedType,
+
+            // GetRowCount - called when all we want is the total row count.
+            // Most OData services support $count, but it only works if
+            // no other query parameters are sent (i.e. $top, or $filter).
+            // Our implementation will first check for other query state -
+            // if there are any state fields set by other handlers, we
+            // return "..." unimplemented, because we won't be able to fold
+            // the request to the server.
+            GetRowCount = () as number =>
+                if (Record.FieldCount(Record.RemoveFields(state, {"Url", "Entity", "Schema"}, MissingField.Ignore)) > 0) then
+                    ...
+                else
+                    let
+                        newState = state & [ RowCountOnly = true ],
+                        finalUrl = CalculateUrl(newState),
+                        value = Rest.Scalar(finalUrl),
+                        converted = Number.FromText(value)
+                    in
+                        converted,
+
+            // OnTake - handles the Table.FirstN transform, limiting
+            // the maximum number of rows returned in the result set.
+            // The count value should be >= 0.
+            OnTake = (count as number) =>
+                let
+                    value = if(count >= 1000) then 999 else count,
+                    newState = state & [ Top = value ]
+                in
+                    @View(newState),
+
+            // OnSkip - handles the Table.Skip transform.
+            // The count value should be >= 0.
+            OnSkip = (count as number) =>
+                let
+                    newState = state & [ Skip = count ]
+                in
+                    @View(newState),
+
+            // OnSelectColumns - handles column selection
+            OnSelectColumns = (columns as list) =>
+                let
+                    // get the current schema
+                    currentSchema = CalculateSchema(state),
+                    // get the columns from the current schema (which is an M Type value)
+                    rowRecordType = Type.RecordFields(Type.TableRow(currentSchema)),
+                    existingColumns = Record.FieldNames(rowRecordType),
+                    // calculate the new schema
+                    columnsToRemove = List.Difference(existingColumns, columns),
+                    updatedColumns = Record.RemoveFields(rowRecordType, columnsToRemove),
+                    newSchema = type table (Type.ForRecord(updatedColumns, false))
+                in
+                    @View(state & 
+                        [ 
+                            SelectColumns = columns,
+                            Schema = newSchema
+                        ]
+                    ),
+
+            // OnSort - receives a list of records containing two fields: 
+            //    [Name]  - the name of the column to sort on
+            //    [Order] - equal to Order.Ascending or Order.Descending
+            // If there are multiple records, the sort order must be maintained.
+            //
+            // OData allows you to sort on columns that do not appear in the result
+            // set, so we do not have to validate that the sorted columns are in our 
+            // existing schema.
+            OnSort = (order as list) =>
+                let
+                    // This will convert the list of records to a list of text,
+                    // where each entry is "<columnName> <asc|desc>"
+                    sorting = List.Transform(order, (o) => 
+                        let
+                            column = o[Name],
+                            order = o[Order],
+                            orderText = if (order = Order.Ascending) then "asc" else "desc"
+                        in
+                            column & " " & orderText
+                    ),
+                    orderBy = Text.Combine(sorting, ", ")
+                in
+                    @View(state & [ OrderBy = orderBy ]),
+
+            //
+            // Helper functions
+            //
+            // Retrieves the cached schema. If this is the first call
+            // to CalculateSchema, the table type is calculated based on
+            // entity name that was passed into the function.
+            CalculateSchema = (state) as type =>
+                if (state[Schema]? = null) then
+                    GetActionForEntity(entity)(tenants, true, null, null, metadata)
+                else
+                    state[Schema],
+
+            // Calculates the final URL based on the current state.
+            CalculateUrl = (state) as text => 
+                let
+                    entity = "",
+
+                    // Check for $count. If all we want is a row count,
+                    // then we add /$count to the path value (following the entity name).
+                    urlWithRowCount =
+                        if (state[RowCountOnly]? = true) then
+                            entity & "/$count"
+                        else
+                            entity,
+
+                    // Uri.BuildQueryString requires that all field values
+                    // are text literals.
+                    defaultQueryString = [],
+
+                    // Check for Top defined in our state
+                    qsWithTop =
+                        if (state[Top]? <> null) then
+                            defaultQueryString & [ #"$top" = Number.ToText(state[Top]) ]
+                        else
+                            defaultQueryString,
+
+                    // Check for Skip defined in our state
+                    qsWithSkip = 
+                        if (state[Skip]? <> null) then
+                            qsWithTop & [ #"$skip" = Number.ToText(state[Skip]) ]
+                        else
+                            qsWithTop,
+
+                    // Check for explicitly selected columns
+                    qsWithSelect =
+                        if (state[SelectColumns]? <> null) then
+                            qsWithSkip & [ #"$select" = Text.Combine(List.RemoveItems(state[SelectColumns], {"tenantId"}), ",") ]
+                        else
+                            qsWithSkip,
+
+                    qsWithOrderBy = 
+                        if (state[OrderBy]? <> null) then
+                            qsWithSelect & [ #"$orderby" = state[OrderBy] ]
+                        else
+                            qsWithSelect,
+
+                    encodedQueryString = Uri.BuildQueryString(qsWithOrderBy),
+                    finalUrl = urlWithRowCount & "?" & encodedQueryString
+                in
+                    finalUrl
+        ]))
+    in
+        View([Entity = entity]);
+
+// Network 
+
+Rest.Feed = (requests as table, isPaged as logical, optional schema as type) => 
+    let
+        GetData = (input as record) =>
+            let
+                requestContainsTopQuery = Text.Contains(input[secMgmtInsightsRequest], "top="),
+
+                data = try if(isPaged and not requestContainsTopQuery) then 
+                        Rest.GetPages(input[secMgmtInsightsRequest], GetAccessToken(input[tenantId], input[secMgmtInsightsScope]), schema)
+                    else
+                        Rest.GetContents(input[secMgmtInsightsRequest], GetAccessToken(input[tenantId], input[secMgmtInsightsScope]), isPaged and requestContainsTopQuery, schema),
+
+                response = if(data[HasError] or Table.IsEmpty(data[Value])) then 
+                        let
+                            listOfFields = List.RemoveMatchingItems(Record.FieldNames(input), { "secMgmtInsightsRequest" }),
+                            tableFromRecord = Table.FromRecords({input}, listOfFields),
+                            value = Table.ToRecords(tableFromRecord)
+                        in
+                            value
+                else 
+                    let 
+                        base = Table.AddColumn(data[Value], "secMgmtInsightsBase", each input),
+                        listOfFields = List.RemoveMatchingItems(Record.FieldNames(input), { "secMgmtInsightsRequest" }),
+                        expanded = Table.ExpandRecordColumn(base, "secMgmtInsightsBase", listOfFields), 
+                        value = Table.ToRecords(expanded)
+                    in
+                        value
+            in 
+                response,
+
+        data = Table.AddColumn(requests, "Column1", each GetData(_)),
+        buffered = Table.Buffer(data), 
+
+        mergedLists = List.Combine(buffered[Column1]),
+        tableFromList = Table.FromList(mergedLists, Splitter.SplitByNothing(), {"Column1"}),
+        
+        listOfColumns =  List.Union(List.Transform(mergedLists, each Record.FieldNames(_))),
+        expandedRecord = Table.ExpandRecordColumn(tableFromList, "Column1", listOfColumns)
+    in 
+        expandedRecord;
+
+Rest.GetContents = (url as text, token as text, isPaged as logical, optional schema as type) =>
+    let 
+        response = Web.Contents(url,
+            [
+                Headers = [
+                    #"Accept" = "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false",
+                    #"Accept-encoding" = "gzip, deflate",
+                    #"Authorization" = "Bearer " & token,
+                    #"User-Agent" = "microsoft365-lighthouse-bi" 
+                ],
+                ManualCredentials = true,
+                ManualStatusHandling = {400, 401, 403}
+            ]),
+        buffered = Binary.Buffer(response),
+        body = Json.Document(buffered), 
+        nextLink = Rest.GetNextLink(body),
+
+        data = if (isPaged and schema = null) then 
+                Diagnostics.LogFailure(
+                    "Error converting response body. Are the records uniform?",
+                    () => Table.FromRecords(body[value])
+                )
+            else if(isPaged and schema <> null) then 
+                let
+                    asTable = Table.FromList(body[value], Splitter.SplitByNothing(), {"Column1"}),
+                    fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
+                    expanded = Table.ExpandRecordColumn(asTable, "Column1", fields),
+                    // TODO HACK
+                    test = Table.RemoveColumns(expanded, {"tenantId"}, MissingField.Ignore)
+                in
+                    test
+            else
+                let
+                    abstract = if(Type.Is(Value.Type(body), List.Type)) then body else {body}, 
+                    contents = Table.FromList(abstract, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+                  
+                    firstRow = contents{0}?,
+                    listOfColumns =  List.Union(List.Transform(abstract, each Record.FieldNames(_))),
+
+                    value = if(firstRow = null) then Table.FromRows({}) else Table.ExpandRecordColumn(contents, "Column1", listOfColumns)
+                in
+                    value
+    in 
+        data meta [NextLink = nextLink];
+
+Rest.GetNextLink = (response) as nullable text => Record.FieldOrDefault(response, "@odata.nextLink");
+
+Rest.GetPages = (url as text, token as text, optional schema as type) => Table.GenerateByPage((previous) => 
+    let
+        // if previous is null, then this is our first page of data
+        nextLink = if (previous = null) then url else Value.Metadata(previous)[NextLink]?,
+        // if NextLink was set to null by the previous call, we know we have no more data
+        page = if (nextLink <> null) then Rest.GetContents(nextLink, token, true, schema) else null
+    in
+        page);
+
+Rest.Scalar = (url as text) =>
+    let
+        token = GetAccessToken(null, "https://graph.microsoft.com/.default"),
+
+        response = Web.Contents(url,
+            [
+                Headers = [
+                    #"Accept" = "text/plain",
+                    #"Authorization" = "Bearer " & token,
+                    #"User-Agent" = "microsoft365-lighthouse-bi" 
+                ],
+                ManualCredentials = true,
+                ManualStatusHandling = {400, 401, 403}
+            ]),
+        buffered = Binary.Buffer(response),
+        value = Text.FromBinary(buffered)
+    in 
+        value;
