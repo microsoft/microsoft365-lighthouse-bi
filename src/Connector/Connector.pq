@@ -158,11 +158,11 @@ Domains = (tenants as list, schemaOnly as logical, optional query as text, optio
 
 DetectedMalwareState = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("windowsDeviceMalwareState", schemaOnly, tenants, "beta", true, "/v1.0/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))", query, null, metadata, "tenantId = text, deviceId = text", (input as table) => 
+        result = Request.GetData("windowsDeviceMalwareState", schemaOnly, tenants, "beta", true, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))", query, null, metadata, "tenantId = text, deviceId = text", (input as table) => 
             let 
                 renamedColumns = Table.RenameColumns(input, {"id", "deviceId"}, MissingField.Ignore),
-                requests = Table.AddColumn(renamedColumns, "secMgmtInsightsRequest", each graph_endpoint & "/beta/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
-                output = Graph.BatchRequests(requests, true) //  Rest.Feed(requests, true)
+                requests = Table.AddColumn(renamedColumns, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
+                output = Graph.BatchRequests(requests, true, true) 
             in 
                 output)
     in 
@@ -231,38 +231,59 @@ Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
 // Helper
 
-Graph.BatchRequests = (requests as table, isPaged as logical) =>
+Graph.BatchRequests = (input as table, isBetaRequest as logical, isPaged as logical) =>
     let 
-        groupedRows = Table.Group(requests, {"tenantId"}, {{"requests", each [secMgmtInsightsRequest]}}),
-
-        output = Table.AddColumn(groupedRows, "response", each Table.GenerateByPage((previous) => 
+        GetData = (tenantId as any, values as any) => Table.GenerateByPage((previous) =>
             let 
-                value = Value.Metadata(previous)[Index]?,
-                index = if(value <> null) then value else 0, 
+                indexValue = Value.Metadata(previous)[Index]?,
+                index = if(indexValue <> null) then indexValue else 0,
 
-                data = if(index = 0) then Table.FromList(List.FirstN([requests], 5), null, {"url"}) else 
+                data = if(index = 0) then Table.FromList(List.FirstN(values, 5), null, {"url"}) else 
                     let
-                        initialValue = List.Skip([requests], index), 
+                        initialValue = List.Skip(values, index), 
                         output = List.FirstN(initialValue, 5)
                     in
-                        if (List.IsEmpty(output)) then null else Table.FromList(output, null, {"url"}),
+                        if (List.IsEmpty(output)) then null else Table.FromList(values, null, {"url"}),
 
-                resp = if(data = null) then null else 
+                requests = if(data = null) then null else 
                     let
-                        addIndexColumn = Table.AddIndexColumn(data, "id"), 
+                        addIndexColumn = Table.AddIndexColumn(data, "id", 1), 
                         addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET")
                     in
-                        addMethodColumn, 
+                        addMethodColumn,
 
-                // TODO - Need to add the function call to perform the HTTP post operation. Next steps here 
-                // will be to modified the network operations to create a HTTP get and post function. That 
-                // way authentication and the headers will can be found in a single place rather than being 
-                // spread through a handful of functions.
-                body = "{""requests"":[" & Text.FromBinary(Json.FromValue(resp)) & "]}"
+                contents = "{""requests"":" & Text.FromBinary(Json.FromValue(requests)) & "}",
+
+                token = GetAccessToken(tenantId),
+                urlToUse = if(isBetaRequest) then graph_endpoint & "/beta/$batch" else graph_endpoint & "/v1.0/$batch",
+
+                response = Web.Contents(urlToUse, [
+                    Content = Text.ToBinary(Text.Remove(contents, "\")), 
+                    Headers = [
+                        #"Accept" = "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false",
+                        #"Accept-encoding" = "gzip, deflate",
+                        #"Authorization" = "Bearer " & token,
+                        #"Content-Type" = "application/json",
+                        #"User-Agent" = "microsoft365-lighthouse-bi" 
+                    ],
+                    ManualCredentials = true,
+                    ManualStatusHandling = {400, 401, 403}
+                ]),
+
+                buffered = Binary.Buffer(response),
+                document = Json.Document(buffered),
+
+                result = Diagnostics.LogFailure(
+                    "Error converting response body. Are the records uniform?",
+                    () => Table.FromRecords(document[responses])
+                )
             in
-                resp meta [Index = index + 5]))
+                result meta [Index = index + 5]),
+
+        groupedRows = Diagnostics.LogValue("grouped", Table.Group(input, {"tenantId"}, {{"requests", each [secMgmtInsightsRequest]}})),
+        output = Table.AddColumn(groupedRows, "responses", each GetData([tenantId], [requests]))
     in 
-        output;
+        Diagnostics.LogValue("Output", output);
 
 Graph.BuildRequests = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
