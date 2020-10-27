@@ -162,7 +162,7 @@ DetectedMalwareState = (tenants as list, schemaOnly as logical, optional query a
             let 
                 renamedColumns = Table.RenameColumns(input, {"id", "deviceId"}, MissingField.Ignore),
                 requests = Table.AddColumn(renamedColumns, "secMgmtInsightsRequest", each graph_endpoint & "/beta/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
-                output = Rest.Feed(requests, true)
+                output = Graph.BatchRequests(requests, true) //  Rest.Feed(requests, true)
             in 
                 output)
     in 
@@ -230,6 +230,39 @@ Table.GenerateByPage = Extension.LoadFunction("Table.GenerateByPage.pqm");
 Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
 // Helper
+
+Graph.BatchRequests = (requests as table, isPaged as logical) =>
+    let 
+        groupedRows = Table.Group(requests, {"tenantId"}, {{"requests", each [secMgmtInsightsRequest]}}),
+
+        output = Table.AddColumn(groupedRows, "response", each Table.GenerateByPage((previous) => 
+            let 
+                value = Value.Metadata(previous)[Index]?,
+                index = if(value <> null) then value else 0, 
+
+                data = if(index = 0) then Table.FromList(List.FirstN([requests], 5), null, {"url"}) else 
+                    let
+                        initialValue = List.Skip([requests], index), 
+                        output = List.FirstN(initialValue, 5)
+                    in
+                        if (List.IsEmpty(output)) then null else Table.FromList(output, null, {"url"}),
+
+                resp = if(data = null) then null else 
+                    let
+                        addIndexColumn = Table.AddIndexColumn(data, "id"), 
+                        addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET")
+                    in
+                        addMethodColumn, 
+
+                // TODO - Need to add the function call to perform the HTTP post operation. Next steps here 
+                // will be to modified the network operations to create a HTTP get and post function. That 
+                // way authentication and the headers will can be found in a single place rather than being 
+                // spread through a handful of functions.
+                body = "{""requests"":[" & Text.FromBinary(Json.FromValue(resp)) & "]}"
+            in
+                resp meta [Index = index + 5]))
+    in 
+        output;
 
 Graph.BuildRequests = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
