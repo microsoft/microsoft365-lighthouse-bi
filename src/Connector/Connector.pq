@@ -158,10 +158,12 @@ Domains = (tenants as list, schemaOnly as logical, optional query as text, optio
 
 DetectedMalwareState = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
+        // BUG - When the schema parameter is specified and the additional schema contains deviceId it will throw an error saying that it already exists
         result = Request.GetData("windowsDeviceMalwareState", schemaOnly, tenants, "beta", true, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))", query, null, metadata, "tenantId = text, deviceId = text", (input as table) => 
             let 
                 renamedColumns = Table.RenameColumns(input, {"id", "deviceId"}, MissingField.Ignore),
                 requests = Table.AddColumn(renamedColumns, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
+                // BUG - Since the data is grouped at the tenant level all 'seed data' (e.g. deviceId) is lost
                 output = Graph.BatchRequests(requests, true, true) 
             in 
                 output)
@@ -241,49 +243,61 @@ Graph.BatchRequests = (input as table, isBetaRequest as logical, isPaged as logi
                 data = if(index = 0) then Table.FromList(List.FirstN(values, 5), null, {"url"}) else 
                     let
                         initialValue = List.Skip(values, index), 
-                        output = List.FirstN(initialValue, 5)
+                        newValue = List.FirstN(initialValue, 5)
                     in
-                        if (List.IsEmpty(output)) then null else Table.FromList(values, null, {"url"}),
+                        if (List.IsEmpty(newValue)) then null else Table.FromList(values, null, {"url"}),
 
-                requests = if(data = null) then null else 
-                    let
+                output = if(data = null) then null else 
+                    let 
                         addIndexColumn = Table.AddIndexColumn(data, "id", 1), 
-                        addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET")
-                    in
-                        addMethodColumn,
+                        addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
 
-                contents = "{""requests"":" & Text.FromBinary(Json.FromValue(requests)) & "}",
+                        contents = "{""requests"":" & Text.FromBinary(Json.FromValue(addMethodColumn)) & "}",
 
-                token = GetAccessToken(tenantId),
-                urlToUse = if(isBetaRequest) then graph_endpoint & "/beta/$batch" else graph_endpoint & "/v1.0/$batch",
+                        token = GetAccessToken(tenantId),
+                        urlToUse = if(isBetaRequest) then graph_endpoint & "/beta/$batch" else graph_endpoint & "/v1.0/$batch",
 
-                response = Web.Contents(urlToUse, [
-                    Content = Text.ToBinary(Text.Remove(contents, "\")), 
-                    Headers = [
-                        #"Accept" = "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false",
-                        #"Accept-encoding" = "gzip, deflate",
-                        #"Authorization" = "Bearer " & token,
-                        #"Content-Type" = "application/json",
-                        #"User-Agent" = "microsoft365-lighthouse-bi" 
-                    ],
-                    ManualCredentials = true,
-                    ManualStatusHandling = {400, 401, 403}
-                ]),
+                        batchResponse = Web.Contents(urlToUse, [
+                            Content = Text.ToBinary(Text.Remove(contents, "\")), 
+                            Headers = [
+                                #"Accept" = "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false",
+                                #"Accept-encoding" = "gzip, deflate",
+                                #"Authorization" = "Bearer " & token,
+                                #"Content-Type" = "application/json",
+                                #"User-Agent" = "microsoft365-lighthouse-bi" 
+                            ],
+                            ManualCredentials = true,
+                            ManualStatusHandling = {400, 401, 403}
+                        ]),
 
-                buffered = Binary.Buffer(response),
-                document = Json.Document(buffered),
+                        buffered = Binary.Buffer(batchResponse),
+                        document = Json.Document(buffered),
 
-                result = Diagnostics.LogFailure(
-                    "Error converting response body. Are the records uniform?",
-                    () => Table.FromRecords(document[responses])
-                )
+                        expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
+                        expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"status", "body"}, {"status", "body"}),
+                        tableFromList = Table.FromList(expandedRecord[body], Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+                        tableFromRecords = Table.FromRecords(tableFromList[Column1])
+                    in 
+                        tableFromRecords
             in
-                result meta [Index = index + 5]),
+                output meta [Index = index + 5]),
 
-        groupedRows = Diagnostics.LogValue("grouped", Table.Group(input, {"tenantId"}, {{"requests", each [secMgmtInsightsRequest]}})),
-        output = Table.AddColumn(groupedRows, "responses", each GetData([tenantId], [requests]))
+        groupedRows = Table.Group(input, {"tenantId"}, {{"requests", each [secMgmtInsightsRequest]}}),
+        output = Table.AddColumn(groupedRows, "responses", each GetData([tenantId], [requests])),
+
+        buffered = Table.Buffer(output),
+
+        removedErrors = Table.RemoveRowsWithErrors(buffered, {"responses"}),
+        expandedResponses = Table.ExpandTableColumn(removedErrors, "responses", {"@odata.context", "value"}, {"@odata.context", "value"}),
+
+        expandedValue = Table.ExpandListColumn(expandedResponses, "value"),
+        
+        filteredRows = Table.SelectRows(expandedValue, each [value] <> null and [value] <> ""),
+        listOfColumns =  List.Union(List.Transform(filteredRows[value], each Record.FieldNames(_))),
+                
+        expanded = Table.ExpandRecordColumn(filteredRows, "value", listOfColumns)
     in 
-        Diagnostics.LogValue("Output", output);
+        expanded;
 
 Graph.BuildRequests = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
