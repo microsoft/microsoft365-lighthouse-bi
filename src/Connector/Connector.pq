@@ -124,61 +124,67 @@ TokenMethod = (tokenUri, grantType, tokenField, parameter, optional scope as tex
     in 
         result;
 
-ConditionalAccessPolicies = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+// Azure Active Directory
+
+ConditionalAccessPolicies = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("conditionalAccessPolicy", schemaOnly, tenants, "v1.0", true, "/v1.0/identity/conditionalAccess/policies", query, schema, metadata)
+        result = Request.GetData("conditionalAccessPolicy", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/identity/conditionalAccess/policies", query, schema, metadata)
     in 
         result;
 
-Contracts = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Contracts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("contract", schemaOnly, {}, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
+        result = Request.GetData("contract", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
     in
         result;
 
-CredentialUserRegistrationDetails = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+CredentialUserRegistrationDetails = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("credentialUserRegistrationDetails", schemaOnly, tenants, "beta", true, "/beta/reports/credentialUserRegistrationDetails", query, schema, metadata)
+        result = Request.GetData("credentialUserRegistrationDetails", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/credentialUserRegistrationDetails", query, schema, metadata)
     in
         result;
 
-Devices = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Devices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("device", schemaOnly, tenants, "v1.0", true, "/v1.0/devices", query, schema, metadata)
+        result = Request.GetData("device", isCount, schemaOnly, tenants, "beta", true, "/beta/devices", query, schema, metadata)
     in
         result;
 
-Domains = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Domains = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("domain", schemaOnly, tenants, "v1.0", true, "/v1.0/domains", query, schema, metadata)
+        result = Request.GetData("domain", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/domains", query, schema, metadata)
     in
         result;
 
 // Device Management 
 
-DetectedMalwareState = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        // BUG - When the schema parameter is specified and the additional schema contains deviceId it will throw an error saying that it already exists
-        result = Request.GetData("windowsDeviceMalwareState", schemaOnly, tenants, "beta", true, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))", query, null, metadata, "tenantId = text, deviceId = text", (input as table) => 
-            let 
-                renamedColumns = Table.RenameColumns(input, {"id", "deviceId"}, MissingField.Ignore),
-                requests = Table.AddColumn(renamedColumns, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
-                // BUG - Since the data is grouped at the tenant level all 'seed data' (e.g. deviceId) is lost
-                output = Graph.BatchRequests(requests, true, true) 
-            in 
-                output)
+         result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = version]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId")
+            else
+                let
+                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
+                    response = Rest.Feed(requests, true, schema),
+
+                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
+                    
+                    batchResponse = Request.Batch(batchRequests, true, true)
+                in 
+                    batchResponse
     in 
         result;
 
-ManagedDevices = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+ManagedDevices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("managedDevice", schemaOnly, tenants, "beta", true, "/beta/deviceManagement/managedDevices", query, schema, metadata)
+        result = Request.GetData("managedDevice", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/managedDevices", query, schema, metadata)
     in
         result;
 
-RemoteActionAudits = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+RemoteActionAudits = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("remoteActionAudit", schemaOnly, tenants, "beta", true, "/beta/deviceManagement/remoteActionAudits", query, schema, metadata)
+        result = Request.GetData("remoteActionAudit", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/remoteActionAudits", query, schema, metadata)
     in 
         result;
 
@@ -231,75 +237,60 @@ Table.ChangeType = Extension.LoadFunction("Table.ChangeType.pqm");
 Table.GenerateByPage = Extension.LoadFunction("Table.GenerateByPage.pqm");
 Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
-// Helper
+// Helpers 
 
-Graph.BatchRequests = (input as table, isBetaRequest as logical, isPaged as logical) =>
+Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =>
     let 
-        GetData = (tenantId as any, values as any) => Table.GenerateByPage((previous) =>
-            let 
+        GetData = (tenantId as text, input as table) =>
+            let
+                data = Table.SelectColumns(input, {"id", "method", "secMgmtInsightsRequest"}),
+                rename = Table.RenameColumns(data, {"secMgmtInsightsRequest", "request"}),
+
+                contents = "{""requests"":" & Text.FromBinary(Json.FromValue(rename)) & "}",
+
+                token = GetAccessToken(tenantId),
+                urlToUse = if(isBetaRequest) then graph_endpoint & "/beta/$batch" else graph_endpoint & "/v1.0/$batch",
+
+                // TODO -- Need to fix the Rest.Requests method to include the contentType header if specified
+                response = Rest.Request(urlToUse, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, "application/json"),
+                document = Json.Document(response),
+
+                tableFromList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error)
+            in 
+                tableFromList,
+
+        Process = (tenantId as text, requests as table) => Table.GenerateByPage((previous) =>
+            let
                 indexValue = Value.Metadata(previous)[Index]?,
                 index = if(indexValue <> null) then indexValue else 0,
 
-                data = if(index = 0) then Table.FromList(List.FirstN(values, 5), null, {"url"}) else 
+                data = if(index = 0) then Table.FirstN(requests, 5) else 
                     let
-                        initialValue = List.Skip(values, index), 
+                        initialValue = Table.Skip(requests, index), 
                         newValue = List.FirstN(initialValue, 5)
                     in
-                        if (List.IsEmpty(newValue)) then null else Table.FromList(values, null, {"url"}),
+                        if (Table.IsEmpty(newValue)) then null else requests,
 
                 output = if(data = null) then null else 
                     let 
-                        addIndexColumn = Table.AddIndexColumn(data, "id", 1), 
+                        addIndexColumn = Table.AddIndexColumn(data, "id", 1),
                         addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
 
-                        contents = "{""requests"":" & Text.FromBinary(Json.FromValue(addMethodColumn)) & "}",
+                        response = GetData(tenantId, addMethodColumn),
 
-                        token = GetAccessToken(tenantId),
-                        urlToUse = if(isBetaRequest) then graph_endpoint & "/beta/$batch" else graph_endpoint & "/v1.0/$batch",
-
-                        batchResponse = Web.Contents(urlToUse, [
-                            Content = Text.ToBinary(Text.Remove(contents, "\")), 
-                            Headers = [
-                                #"Accept" = "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false",
-                                #"Accept-encoding" = "gzip, deflate",
-                                #"Authorization" = "Bearer " & token,
-                                #"Content-Type" = "application/json",
-                                #"User-Agent" = "microsoft365-lighthouse-bi" 
-                            ],
-                            ManualCredentials = true,
-                            ManualStatusHandling = {400, 401, 403}
-                        ]),
-
-                        buffered = Binary.Buffer(batchResponse),
-                        document = Json.Document(buffered),
-
-                        expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
-                        expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"status", "body"}, {"status", "body"}),
-                        tableFromList = Table.FromList(expandedRecord[body], Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-                        tableFromRecords = Table.FromRecords(tableFromList[Column1])
-                    in 
-                        tableFromRecords
+                        joinedTable = Table.Join(addMethodColumn, "id", response, "id"),
+                        removedColumns = Table.RemoveColumns(joinedTable, {"id", "method"}, MissingField.Ignore)
+                    in
+                        removedColumns
             in
                 output meta [Index = index + 5]),
 
-        groupedRows = Table.Group(input, {"tenantId"}, {{"requests", each [secMgmtInsightsRequest]}}),
-        output = Table.AddColumn(groupedRows, "responses", each GetData([tenantId], [requests])),
-
-        buffered = Table.Buffer(output),
-
-        removedErrors = Table.RemoveRowsWithErrors(buffered, {"responses"}),
-        expandedResponses = Table.ExpandTableColumn(removedErrors, "responses", {"@odata.context", "value"}, {"@odata.context", "value"}),
-
-        expandedValue = Table.ExpandListColumn(expandedResponses, "value"),
-        
-        filteredRows = Table.SelectRows(expandedValue, each [value] <> null and [value] <> ""),
-        listOfColumns =  List.Union(List.Transform(filteredRows[value], each Record.FieldNames(_))),
-                
-        expanded = Table.ExpandRecordColumn(filteredRows, "value", listOfColumns)
+        groupedRows = Table.Group(input, {"tenantId"}, {{"requests", each _}}),
+        runRequest = Table.AddColumn(groupedRows, "responses", each Process([tenantId], [requests]))
     in 
-        expanded;
+        runRequest;
 
-Graph.BuildRequests = (tenants as list, relativeUrl as text, optional query as text) =>
+Request.Build = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
         request = if(query = null or query = "") then 
             Uri.Combine(graph_endpoint, relativeUrl)
@@ -313,45 +304,44 @@ Graph.BuildRequests = (tenants as list, relativeUrl as text, optional query as t
     in 
         expandedList;
 
-Request.GetData = (resource as text, schemaOnly as logical, tenants as list, version as text, isPaged as logical, relativeUrl as text, optional query, optional schema as type, optional metadata, optional additionalSchema as text, optional func as function) =>
+Request.GetData = (resource as text, isCount as logical, schemaOnly as logical, tenants as list, version as text, isPaged as logical, relativeUrl as text, optional query, optional schema as type, optional metadata, optional additionalSchema as text) =>
     let
         result = if(schemaOnly) then 
                 Schema.GetKnownType(metadata{[Version = version]}[Value], resource, if(additionalSchema <> null) then additionalSchema else "tenantId = text")
             else 
                 let
-                    requests = Graph.BuildRequests(tenants, relativeUrl, query),
-                    data = Rest.Feed(requests, isPaged, schema),
-                    output = if(func <> null) then func(data) else data
+                    requests = Request.Build(tenants, relativeUrl, query),
+                    data = if(isCount) then Rest.Scalar(requests) else Rest.Feed(requests, isPaged, schema)
                 in 
-                    output
+                    data
     in 
         result;
 
 // Identity Protection 
 
-RiskDetections = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+RiskDetections = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("riskDetection", schemaOnly, tenants, "beta", true, "/beta/identityProtection/riskDetections", query, schema, metadata)
+        result = Request.GetData("riskDetection", isCount, schemaOnly, tenants, "beta", true, "/beta/identityProtection/riskDetections", query, schema, metadata)
     in 
         result;
 
 // Intelligent Security Graph
 
-Alerts = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Alerts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("alert", schemaOnly, tenants, "v1.0", true, "/v1.0/security/alerts", query, schema, metadata)
+        result = Request.GetData("alert", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/alerts", query, schema, metadata)
     in 
         result;
 
-SecureScore = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+SecureScore = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("secureScore", schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScores", query, schema, metadata)
+        result = Request.GetData("secureScore", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScores", query, schema, metadata)
     in 
         result;
 
-SecureScoreControlProfiles = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+SecureScoreControlProfiles = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("secureScoreControlProfile", schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
+        result = Request.GetData("secureScoreControlProfile", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
     in
         result;
 
@@ -413,9 +403,8 @@ View = (entity as text, metadata as table, tenants as list) as table =>
             GetRows = () => 
                 let
                     finalSchema = CalculateSchema(state),
-                    finalUrl = CalculateUrl(state),
-                    // TODO - Need to change var finalUrl to query because the URL is calculated in another function downstream
-                    result = GetActionForEntity(entity)(tenants, false, finalUrl, finalSchema),
+                    finalQueryString = CalculateQueryString(state),
+                    result = GetActionForEntity(entity)(tenants, false, false, finalQueryString, finalSchema),
                     appliedType = Table.ChangeType(result, finalSchema)
                 in
                     appliedType,
@@ -433,8 +422,8 @@ View = (entity as text, metadata as table, tenants as list) as table =>
                 else
                     let
                         newState = state & [ RowCountOnly = true ],
-                        finalUrl = CalculateUrl(newState),
-                        value = Rest.Scalar(finalUrl),
+                        finalQueryString = CalculateQueryString(newState),
+                        value = GetActionForEntity(entity)(tenants, true, false, finalQueryString),
                         converted = Number.FromText(value)
                     in
                         converted,
@@ -509,33 +498,30 @@ View = (entity as text, metadata as table, tenants as list) as table =>
             // entity name that was passed into the function.
             CalculateSchema = (state) as type =>
                 if (state[Schema]? = null) then
-                    GetActionForEntity(entity)(tenants, true, null, null, metadata)
+                    GetActionForEntity(entity)(tenants, false, true, null, null, metadata)
                 else
                     state[Schema],
 
-            // Calculates the final URL based on the current state.
-            CalculateUrl = (state) as text => 
+            // Calculates the final query string based on the current state.
+            CalculateQueryString = (state) as text => 
                 let
-                    entity = "",
-
-                    // Check for $count. If all we want is a row count,
-                    // then we add /$count to the path value (following the entity name).
-                    urlWithRowCount =
-                        if (state[RowCountOnly]? = true) then
-                            entity & "/$count"
-                        else
-                            entity,
-
                     // Uri.BuildQueryString requires that all field values
                     // are text literals.
                     defaultQueryString = [],
 
+                    // HCeck if we need to add the count query string parameter
+                    qsWithRowCount =
+                        if (state[RowCountOnly]? = true) then
+                            defaultQueryString & [ #"$count" = true ]
+                        else
+                            defaultQueryString,
+
                     // Check for Top defined in our state
                     qsWithTop =
                         if (state[Top]? <> null) then
-                            defaultQueryString & [ #"$top" = Number.ToText(state[Top]) ]
+                            qsWithRowCount & [ #"$top" = Number.ToText(state[Top]) ]
                         else
-                            defaultQueryString,
+                            qsWithRowCount,
 
                     // Check for Skip defined in our state
                     qsWithSkip = 
@@ -557,15 +543,14 @@ View = (entity as text, metadata as table, tenants as list) as table =>
                         else
                             qsWithSelect,
 
-                    encodedQueryString = Uri.BuildQueryString(qsWithOrderBy),
-                    finalUrl = urlWithRowCount & "?" & encodedQueryString
+                    encodedQueryString = Uri.BuildQueryString(qsWithOrderBy)
                 in
-                    finalUrl
+                    encodedQueryString
         ]))
     in
         View([Entity = entity]);
 
-// Network 
+// Network
 
 Rest.Feed = (requests as table, isPaged as logical, optional schema as type) => 
     let
@@ -609,35 +594,24 @@ Rest.Feed = (requests as table, isPaged as logical, optional schema as type) =>
 
 Rest.GetContents = (url as text, token as text, isPaged as logical, optional schema as type) =>
     let 
-        response = Web.Contents(url,
-            [
-                Headers = [
-                    #"Accept" = "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false",
-                    #"Accept-encoding" = "gzip, deflate",
-                    #"Authorization" = "Bearer " & token,
-                    #"User-Agent" = "microsoft365-lighthouse-bi" 
-                ],
-                ManualCredentials = true,
-                ManualStatusHandling = {400, 401, 403}
-            ]),
-        buffered = Binary.Buffer(response),
-        body = Json.Document(buffered), 
-        nextLink = Rest.GetNextLink(body),
+        response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token),
+        body = Json.Document(response), 
+        nextLink = Record.FieldOrDefault(body, "@odata.nextLink"),
 
         data = if (isPaged and schema = null) then 
                 Diagnostics.LogFailure(
                     "Error converting response body. Are the records uniform?",
-                    () => Table.FromRecords(body[value])
-                )
+                    () => Table.FromRecords(body[value]))
             else if(isPaged and schema <> null) then 
                 let
                     asTable = Table.FromList(body[value], Splitter.SplitByNothing(), {"Column1"}),
                     fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
                     expanded = Table.ExpandRecordColumn(asTable, "Column1", fields),
-                    // TODO HACK
-                    test = Table.RemoveColumns(expanded, {"tenantId"}, MissingField.Ignore)
+                    // Remove the tenantId field if exists beacuse it is not found in each response 
+                    // and other functions add base data and this value exist in that set.
+                    removed = Table.RemoveColumns(expanded, {"tenantId"}, MissingField.Ignore)
                 in
-                    test
+                    removed
             else
                 let
                     abstract = if(Type.Is(Value.Type(body), List.Type)) then body else {body}, 
@@ -652,8 +626,6 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
     in 
         data meta [NextLink = nextLink];
 
-Rest.GetNextLink = (response) as nullable text => Record.FieldOrDefault(response, "@odata.nextLink");
-
 Rest.GetPages = (url as text, token as text, optional schema as type) => Table.GenerateByPage((previous) => 
     let
         // if previous is null, then this is our first page of data
@@ -663,21 +635,34 @@ Rest.GetPages = (url as text, token as text, optional schema as type) => Table.G
     in
         page);
 
-Rest.Scalar = (url as text) =>
+Rest.Request = (url as text, accept, token as text, optional content as any) => 
     let
-        token = GetAccessToken(null, "https://graph.microsoft.com/.default"),
-
         response = Web.Contents(url,
             [
                 Headers = [
-                    #"Accept" = "text/plain",
+                    #"Accept" = accept,
+                    #"Accept-encoding" = "gzip, deflate",
                     #"Authorization" = "Bearer " & token,
                     #"User-Agent" = "microsoft365-lighthouse-bi" 
                 ],
                 ManualCredentials = true,
                 ManualStatusHandling = {400, 401, 403}
             ]),
-        buffered = Binary.Buffer(response),
-        value = Text.FromBinary(buffered)
+        
+        buffered = Binary.Buffer(response)
     in 
-        value;
+        buffered;
+
+Rest.Scalar = (requests as table) =>
+    let
+        GetData = (input as record) =>
+            let 
+                response = Rest.Request(input[secMgmtInsightsRequest], "text/plain", GetAccessToken(input[tenantId], input[secMgmtInsightsScope])),
+                value = Text.FromBinary(response)
+            in
+                value,
+
+        data = Table.AddColumn(requests, "Column1", each GetData(_)),
+        output =  List.Sum(data[Column1])
+    in 
+        output;
