@@ -251,8 +251,7 @@ Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =
                 token = GetAccessToken(tenantId),
                 urlToUse = if(isBetaRequest) then graph_endpoint & "/beta/$batch" else graph_endpoint & "/v1.0/$batch",
 
-                // TODO -- Need to fix the Rest.Requests method to include the contentType header if specified
-                response = Rest.Request(urlToUse, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, "application/json"),
+                response = Rest.Request(urlToUse, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, Text.Remove(contents, "\")),
                 document = Json.Document(response),
 
                 tableFromList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error)
@@ -635,20 +634,23 @@ Rest.GetPages = (url as text, token as text, optional schema as type) => Table.G
     in
         page);
 
-Rest.Request = (url as text, accept, token as text, optional content as any) => 
+Rest.Request = (url as text, accept, token as text, optional content as text) => 
     let
-        response = Web.Contents(url,
-            [
-                Headers = [
-                    #"Accept" = accept,
-                    #"Accept-encoding" = "gzip, deflate",
-                    #"Authorization" = "Bearer " & token,
-                    #"User-Agent" = "microsoft365-lighthouse-bi" 
-                ],
-                ManualCredentials = true,
-                ManualStatusHandling = {400, 401, 403}
-            ]),
-        
+       baseHeaders = [
+            #"Accept" = accept,
+            #"Accept-encoding" = "gzip, deflate",
+            #"Authorization" = "Bearer " & token,
+            #"User-Agent" = "microsoft365-lighthouse-bi" 
+        ],        
+        baseOptions = [
+            ManualCredentials = true,
+            ManualStatusHandling = {400, 401, 403}
+        ],
+
+        headers = if(content <> null) then Record.AddField(baseHeaders, "Content-Type", "application/json") else baseHeaders,
+        options = if(content <> null) then Record.AddField(baseOptions, "Content", Text.ToBinary(content)) else baseOptions, 
+
+        response = Web.Contents(url, Record.AddField(options, "Headers", headers)),
         buffered = Binary.Buffer(response)
     in 
         buffered;
