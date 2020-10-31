@@ -166,9 +166,9 @@ LicenseDetails = (tenants as list, isCount as logical, schemaOnly as logical, op
                     response = Rest.Feed(requests, true),
 
                     renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/v1.0/users/" & [userId] & "/licenseDetails"),
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/users/" & [userId] & "/licenseDetails"),
                     
-                    batchResponse = Request.Batch(batchRequests, true, true)
+                    batchResponse = Request.Batch(batchRequests, false, true)
                 in 
                    batchResponse
     in
