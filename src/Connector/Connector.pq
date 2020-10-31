@@ -156,6 +156,50 @@ Domains = (tenants as list, isCount as logical, schemaOnly as logical, optional 
     in
         result;
 
+LicenseDetails = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = "v1.0"]}[Value], "licenseDetails", "tenantId = text, userId = text")
+            else
+                let
+                    requests = Request.Build(tenants, "/v1.0/users?$select=id"),
+                    response = Rest.Feed(requests, true),
+
+                    renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/v1.0/users/" & [userId] & "/licenseDetails"),
+                    
+                    batchResponse = Request.Batch(batchRequests, true, true)
+                in 
+                   batchResponse
+    in
+        result;
+
+IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
+        result = Request.GetData("identitySecurityDefaultsEnforcementPolicy", schemaOnly, tenants, "v1.0", false, "/v1.0/policies/identitySecurityDefaultsEnforcementPolicy", removedTopParameter, schema, metadata)
+    in 
+        result;
+
+SignIns = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("signIn", schemaOnly, tenants, "beta", true, "/beta/auditLogs/signIns", query, schema, metadata)
+    in 
+        result;
+
+SubscribedSkus = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
+        result = Request.GetData("subscribedSku", schemaOnly, tenants, "v1.0", true, "/v1.0/subscribedSkus", removedTopParameter, schema, metadata)
+    in
+        result;
+
+Users = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) => 
+    let
+        result = Request.GetData("user", schemaOnly, tenants, "beta", true, "/beta/users", query, schema, metadata)
+    in 
+        result;
+
 // Device Management 
 
 DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
@@ -198,11 +242,16 @@ EntityTable = #table({"Entity", "Action"}, {
     { "DetectedMalwareState", DetectedMalwareState },
     { "Domains", Domains },
     { "Devices", Devices },
+    { "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy },
+    { "LicenseDetails", LicenseDetails },
     { "ManagedDevices", ManagedDevices },
     { "RemoteActionAudits", RemoteActionAudits },
     { "RiskDetections", RiskDetections },
     { "SecureScore", SecureScore },
-    { "SecureScoreControlProfiles", SecureScoreControlProfiles }
+    { "SecureScoreControlProfiles", SecureScoreControlProfiles }, 
+    { "SignIns", SignIns },
+    { "SubscribedSkus", SubscribedSkus },
+    { "Users", Users }
 });
 
 GetActionForEntity = (entity as text) =>
