@@ -244,14 +244,22 @@ EntityTable = #table({"Entity", "Action"}, {
     { "Devices", Devices },
     { "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy },
     { "LicenseDetails", LicenseDetails },
+    { "MailboxUsageDetail", MailboxUsageDetail },
     { "ManagedDevices", ManagedDevices },
+    { "Office365ActivationsUserDetail", Office365ActivationsUserDetail },
+    { "Office365ActiveUserDetails", Office365ActiveUserDetails },
+    { "Office365ServicesUserCounts", Office365ServicesUserCounts },
+    { "OneDriveUsageAccountDetail", OneDriveUsageAccountDetail },
     { "RemoteActionAudits", RemoteActionAudits },
     { "RiskDetections", RiskDetections },
     { "SecureScore", SecureScore },
     { "SecureScoreControlProfiles", SecureScoreControlProfiles }, 
+    { "SharePointSiteUsageDetail", SharePointSiteUsageDetail },
     { "SignIns", SignIns },
     { "SubscribedSkus", SubscribedSkus },
-    { "Users", Users }
+    { "TeamsUserActivityUserDetail", TeamsUserActivityUserDetail },
+    { "Users", Users },
+    { "YammerActivityUserDetail", YammerActivityUserDetail }
 });
 
 GetActionForEntity = (entity as text) =>
@@ -733,3 +741,53 @@ Rest.Scalar = (requests as table) =>
         output =  List.Sum(data[Column1])
     in 
         output;
+
+// Reporting 
+
+MailboxUsageDetail = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("mailboxUsageDetail", schemaOnly, tenants, "beta", true, "/beta/reports/getMailboxUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
+    in 
+        result;
+
+Office365ActivationsUserDetail = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("office365ActivationsUserDetail", schemaOnly, tenants, "beta", true, "/beta/reports/getOffice365ActivationsUserDetail?$format=application/json", query, schema, metadata)
+    in 
+        result;
+
+Office365ActiveUserDetails = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("office365ActiveUserDetail", schemaOnly, tenants, "beta", true, "/beta/reports/getOffice365ActiveUserDetail(period='D30')?$format=application/json", query, schema, metadata)
+    in 
+        result;
+
+Office365ServicesUserCounts = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("office365ServicesUserCounts", schemaOnly, tenants, "beta", true, "/beta/reports/getOffice365ServicesUserCounts(period='D30')?$format=application/json", query, schema, metadata)
+    in 
+        result;
+
+OneDriveUsageAccountDetail = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("oneDriveUsageAccountDetail", schemaOnly, tenants, "beta", true, "/beta/reports/getOneDriveUsageAccountDetail(period='D30')?$format=application/json", query, schema, metadata)
+    in 
+        result;
+
+SharePointSiteUsageDetail = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("sharePointSiteUsageDetail", schemaOnly, tenants, "beta", true, "/beta/reports/getSharePointSiteUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
+    in 
+        result;
+
+TeamsUserActivityUserDetail = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("teamsUserActivityUserDetail", schemaOnly, tenants, "beta", true, "/beta/reports/getTeamsUserActivityUserDetail(period='D30')?$format=application/json", query, schema, metadata)
+    in 
+        result;
+
+YammerActivityUserDetail = (tenants as list, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("yammerActivityUserDetail", schemaOnly, tenants, "beta", true, "/beta/reports/getYammerActivityUserDetail(period='D30')?$format=application/json", query, schema, metadata)
+    in 
+        result;
