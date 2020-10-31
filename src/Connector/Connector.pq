@@ -146,7 +146,7 @@ CredentialUserRegistrationDetails = (tenants as list, isCount as logical, schema
 
 Devices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("device", isCount, schemaOnly, tenants, "beta", true, "/beta/devices", query, schema, metadata)
+        result = Request.GetData("device", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/devices", query, schema, metadata)
     in
         result;
 
@@ -158,23 +158,26 @@ Domains = (tenants as list, isCount as logical, schemaOnly as logical, optional 
 
 // Device Management 
 
-DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
+// DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+shared Microsoft365Lighthouse.DetectedMalwareState = () =>
     let 
-         result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = version]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId")
-            else
-                let
+//          result = if(schemaOnly) then 
+//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId = text")
+//             else
+               // let
+                    tenants = Rest.GetPages(graph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken())[customerId],
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
-                    response = Rest.Feed(requests, true, schema),
+                    response = Rest.Feed(requests, true),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
                     
                     batchResponse = Request.Batch(batchRequests, true, true)
-                in 
-                    batchResponse
+                //in 
+                //    batchResponse
     in 
-        result;
+        batchResponse;
 
 ManagedDevices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
@@ -195,7 +198,7 @@ EntityTable = #table({"Entity", "Action"}, {
     { "ConditionalAccessPolicies", ConditionalAccessPolicies },
     { "Contracts", Contracts },
     { "CredentialUserRegistrationDetails", CredentialUserRegistrationDetails },
-    { "DetectedMalwareState", DetectedMalwareState },
+    //{ "DetectedMalwareState", DetectedMalwareState },
     { "Domains", Domains },
     { "Devices", Devices },
     { "ManagedDevices", ManagedDevices },
@@ -244,7 +247,7 @@ Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =
         GetData = (tenantId as text, input as table) =>
             let
                 data = Table.SelectColumns(input, {"id", "method", "secMgmtInsightsRequest"}),
-                rename = Table.RenameColumns(data, {"secMgmtInsightsRequest", "request"}),
+                rename = Table.RenameColumns(data, {"secMgmtInsightsRequest", "url"}),
 
                 contents = "{""requests"":" & Text.FromBinary(Json.FromValue(rename)) & "}",
 
@@ -254,25 +257,29 @@ Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =
                 response = Rest.Request(urlToUse, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, Text.Remove(contents, "\")),
                 document = Json.Document(response),
 
-                tableFromList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error)
+                expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
+                expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "headers", "body"})
             in 
-                tableFromList,
+                expandedRecord,
 
         Process = (tenantId as text, requests as table) => Table.GenerateByPage((previous) =>
             let
                 indexValue = Value.Metadata(previous)[Index]?,
                 index = if(indexValue <> null) then indexValue else 0,
 
+                requestIdValue = Value.Metadata(previous)[RequestId]?, 
+                requestId = if(requestIdValue <> null) then requestIdValue else 1,
+
                 data = if(index = 0) then Table.FirstN(requests, 5) else 
                     let
                         initialValue = Table.Skip(requests, index), 
-                        newValue = List.FirstN(initialValue, 5)
+                        newValue = Table.FirstN(initialValue, 5)
                     in
-                        if (Table.IsEmpty(newValue)) then null else requests,
+                        if (Table.IsEmpty(newValue)) then null else newValue,
 
                 output = if(data = null) then null else 
                     let 
-                        addIndexColumn = Table.AddIndexColumn(data, "id", 1),
+                        addIndexColumn = Table.AddIndexColumn(data, "id", requestId),
                         addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
 
                         response = GetData(tenantId, addMethodColumn),
@@ -280,9 +287,9 @@ Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =
                         joinedTable = Table.Join(addMethodColumn, "id", response, "id"),
                         removedColumns = Table.RemoveColumns(joinedTable, {"id", "method"}, MissingField.Ignore)
                     in
-                        removedColumns
+                        response
             in
-                output meta [Index = index + 5]),
+                output meta [Index = index + 5, RequestId = requestId + 5]),
 
         groupedRows = Table.Group(input, {"tenantId"}, {{"requests", each _}}),
         runRequest = Table.AddColumn(groupedRows, "responses", each Process([tenantId], [requests]))
@@ -296,7 +303,7 @@ Request.Build = (tenants as list, relativeUrl as text, optional query as text) =
         else if(Text.Contains(relativeUrl, "?")) then 
             Uri.Combine(graph_endpoint, relativeUrl) & "&" & Text.AfterDelimiter(query, "?")
         else 
-            Uri.Combine(graph_endpoint, relativeUrl) & query,
+            Uri.Combine(graph_endpoint, relativeUrl) & "?" & query,
 
         data = #table({"tenantId", "secMgmtInsightsScope", "secMgmtInsightsRequest"}, {{tenants, "https://graph.microsoft.com/.default", request}}),
         expandedList = Table.ExpandListColumn(data, "tenantId")
@@ -346,8 +353,8 @@ SecureScoreControlProfiles = (tenants as list, isCount as logical, schemaOnly as
 
 // Navigation 
         
-[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
-shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
+// [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
+// shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
 
 NavigationTable = (friendlyName as text) as table =>
     let
@@ -629,7 +636,7 @@ Rest.GetPages = (url as text, token as text, optional schema as type) => Table.G
     let
         // if previous is null, then this is our first page of data
         nextLink = if (previous = null) then url else Value.Metadata(previous)[NextLink]?,
-        // if NextLink was set to null by the previous call, we know we have no more data
+        // if next link was set to null by the previous call, we know we have no more data
         page = if (nextLink <> null) then Rest.GetContents(nextLink, token, true, schema) else null
     in
         page);
