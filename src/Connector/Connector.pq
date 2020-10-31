@@ -158,15 +158,12 @@ Domains = (tenants as list, isCount as logical, schemaOnly as logical, optional 
 
 // Device Management 
 
-[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
-// DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-shared Microsoft365Lighthouse.DetectedMalwareState = () =>
+DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-//          result = if(schemaOnly) then 
-//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId = text")
-//             else
-               // let
-                    tenants = Rest.GetPages(graph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken())[customerId],
+         result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId = text")
+            else
+                let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
                     response = Rest.Feed(requests, true),
 
@@ -174,10 +171,10 @@ shared Microsoft365Lighthouse.DetectedMalwareState = () =>
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
                     
                     batchResponse = Request.Batch(batchRequests, true, true)
-                //in 
-                //    batchResponse
+                in 
+                   batchResponse
     in 
-        batchResponse;
+        result;
 
 ManagedDevices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
@@ -198,7 +195,7 @@ EntityTable = #table({"Entity", "Action"}, {
     { "ConditionalAccessPolicies", ConditionalAccessPolicies },
     { "Contracts", Contracts },
     { "CredentialUserRegistrationDetails", CredentialUserRegistrationDetails },
-    //{ "DetectedMalwareState", DetectedMalwareState },
+    { "DetectedMalwareState", DetectedMalwareState },
     { "Domains", Domains },
     { "Devices", Devices },
     { "ManagedDevices", ManagedDevices },
@@ -269,9 +266,6 @@ Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =
                 indexValue = Value.Metadata(previous)[Index]?,
                 index = if(indexValue <> null) then indexValue else 0,
 
-                requestIdValue = Value.Metadata(previous)[RequestId]?, 
-                requestId = if(requestIdValue <> null) then requestIdValue else 1,
-
                 data = if(index = 0) then Table.FirstN(requests, 5) else 
                     let
                         initialValue = Table.Skip(requests, index), 
@@ -281,46 +275,35 @@ Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =
 
                 output = if(data = null) then null else 
                     let 
-                        addIndexColumn = Table.AddIndexColumn(data, "id", requestId),
+                        addIndexColumn = Table.AddIndexColumn(data, "id", index + 1),
                         addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
 
                         response = GetData(tenantId, addMethodColumn),
 
-                        joinedTable = Table.Join(addMethodColumn, "id", response, "id"), 
-                        
-                        /*
-                         * TODO  
-                         * The logic below should be moved outside of this loop. That way 
-                         * we are not doing this over and over when it really can be done once
-                         * Also, there is a need to drop all of the additional fields because 
-                         * they are only used for processing. Even though our schema code will 
-                         * produce the same outcome there are field names that match what the  
-                         * API might return. Since we are using dynamic code to determine names
-                         * for each column there is a significant chance of a collusion. 
-                         */
-
-                        removed = Table.RemoveColumns(joinedTable, {"id", "method", "url"}, MissingField.Ignore),
-
-                        expandedBody = Table.ExpandRecordColumn(removed, "body", {"@odata.context", "value"}, {"@odata.context", "value"}),
-                        expandedValue = Table.ExpandListColumn(expandedBody, "value"),
-                        
-                        filteredRows = Table.SelectRows(expandedValue, each [value] <> null and [value] <> ""),
-                        listOfColumns =  List.Union(List.Transform(filteredRows[value], each Record.FieldNames(_))),
-                        expanded = Table.ExpandRecordColumn(filteredRows, "value", listOfColumns)
+                        joinedTable = Table.Join(addMethodColumn, "id", response, "id")
                     in
-                        expanded
+                        joinedTable
             in
-                /*
-                 * TODO 
-                 * Use the index value for both purposes, there is not a need for the RequestId 
-                 * value. This can be accomplished by using index + 1 for the seed of the index column
-                 */
-                output meta [Index = index + 5, RequestId = requestId + 5]),
+                output meta [Index = index + 5]),
 
         groupedRows = Table.Group(input, {"tenantId"}, {{"requests", each _}}),
-        runRequest = Table.AddColumn(groupedRows, "responses", each Process([tenantId], [requests]))
+        runRequest = Table.AddColumn(groupedRows, "responses", each Process([tenantId], [requests])),
+
+        removeErrors = Table.RemoveRowsWithErrors(runRequest, {"responses"}),
+        responses = Table.Combine(removeErrors[responses]),
+
+        // Remove the columns that were used for processing the request. This is done to prevent
+        // any issue with duplicate columns names when expanding the response from the API.
+        removed = Table.RemoveColumns(responses, {"id", "method", "secMgmtInsightsRequest", "status", "url"}, MissingField.Ignore),
+
+        expandedBody = Table.ExpandRecordColumn(removed, "body", {"@odata.context", "value"}, {"@odata.context", "value"}),
+        expandedValue = Table.ExpandListColumn(expandedBody, "value"),
+                        
+        filteredRows = Table.SelectRows(expandedValue, each [value] <> null and [value] <> ""),
+        listOfColumns =  List.Union(List.Transform(filteredRows[value], each Record.FieldNames(_))),
+        expanded = Table.ExpandRecordColumn(filteredRows, "value", listOfColumns)
     in 
-        runRequest;
+        expanded;
 
 Request.Build = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
@@ -379,8 +362,8 @@ SecureScoreControlProfiles = (tenants as list, isCount as logical, schemaOnly as
 
 // Navigation 
         
-// [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
-// shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
+[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
+shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
 
 NavigationTable = (friendlyName as text) as table =>
     let
