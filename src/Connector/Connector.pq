@@ -244,7 +244,7 @@ Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
 Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =>
     let 
-        GetData = (tenantId as text, input as table) =>
+        GetData = (tenantId as text, input as table) as table =>
             let
                 data = Table.SelectColumns(input, {"id", "method", "secMgmtInsightsRequest"}),
                 rename = Table.RenameColumns(data, {"secMgmtInsightsRequest", "url"}),
@@ -258,9 +258,11 @@ Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =
                 document = Json.Document(response),
 
                 expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
-                expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "headers", "body"})
+                expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "body"}),
+
+                changedType = Table.TransformColumnTypes(expandedRecord, {{"id", type number}})
             in 
-                expandedRecord,
+                changedType,
 
         Process = (tenantId as text, requests as table) => Table.GenerateByPage((previous) =>
             let
@@ -284,11 +286,35 @@ Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =
 
                         response = GetData(tenantId, addMethodColumn),
 
-                        joinedTable = Table.Join(addMethodColumn, "id", response, "id"),
-                        removedColumns = Table.RemoveColumns(joinedTable, {"id", "method"}, MissingField.Ignore)
+                        joinedTable = Table.Join(addMethodColumn, "id", response, "id"), 
+                        
+                        /*
+                         * TODO  
+                         * The logic below should be moved outside of this loop. That way 
+                         * we are not doing this over and over when it really can be done once
+                         * Also, there is a need to drop all of the additional fields because 
+                         * they are only used for processing. Even though our schema code will 
+                         * produce the same outcome there are field names that match what the  
+                         * API might return. Since we are using dynamic code to determine names
+                         * for each column there is a significant chance of a collusion. 
+                         */
+
+                        removed = Table.RemoveColumns(joinedTable, {"id", "method", "url"}, MissingField.Ignore),
+
+                        expandedBody = Table.ExpandRecordColumn(removed, "body", {"@odata.context", "value"}, {"@odata.context", "value"}),
+                        expandedValue = Table.ExpandListColumn(expandedBody, "value"),
+                        
+                        filteredRows = Table.SelectRows(expandedValue, each [value] <> null and [value] <> ""),
+                        listOfColumns =  List.Union(List.Transform(filteredRows[value], each Record.FieldNames(_))),
+                        expanded = Table.ExpandRecordColumn(filteredRows, "value", listOfColumns)
                     in
-                        response
+                        expanded
             in
+                /*
+                 * TODO 
+                 * Use the index value for both purposes, there is not a need for the RequestId 
+                 * value. This can be accomplished by using index + 1 for the seed of the index column
+                 */
                 output meta [Index = index + 5, RequestId = requestId + 5]),
 
         groupedRows = Table.Group(input, {"tenantId"}, {{"requests", each _}}),
