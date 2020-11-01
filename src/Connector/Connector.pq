@@ -10,6 +10,10 @@ redirect_uri = "https://oauth.powerbi.com/views/oauthredirect.html";
 token_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/token";
 version = "0.0.1";
 
+// Default variables
+
+DEFAULT_BATCH_SIZE = 5;
+
 // Data Source Kind description
 
 Microsoft365Lighthouse = [
@@ -40,10 +44,20 @@ Microsoft365Lighthouse.Icons = [
 ];
 
 Microsoft365Lighthouse.Type = type function (
-        friendlyName as (type text meta [
+        connectionName as (type text meta [
             Documentation.FieldCaption = "Connection Friendly Name",
             Documentation.FieldDescription = "A friendly name to identify your tenant",
             Documentation.SampleValues = {"Contoso - US, Contoso - EMEA, or Contoso APAC"}
+        ]),
+        optional tenants as (type list meta [
+            Documentation.FieldCaption = "List of Tenants",
+            Documentation.FieldDescription = "The list of tenants used by the functions",
+            Documentation.SampleValues = {"14be956d-744d-4c76-9c22-e61e28d377e5, 2e5cb289-2986-4f15-bc8e-56d7157210f8"}
+        ]),
+        optional batchSize as (type number meta [
+            Documentation.FieldCaption = "Batch Size",
+            Documentation.FieldDescription = "The size of the batch for requests that support batching",
+            Documentation.SampleValues = {"5, 10, or 15"}
         ])
     ) 
     as table meta [
@@ -220,6 +234,18 @@ DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logic
     in 
         result;
 
+DeviceCompliancePolicies = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("deviceCompliancePolicy", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/deviceCompliancePolicies?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,version", query, schema, metadata)
+    in
+        result;
+
+DeviceConfigurationProfiles = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("deviceConfiguration", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/deviceConfigurations?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,supportsScopeTags,deviceManagementApplicabilityRuleOsEdition,deviceManagementApplicabilityRuleOsVersion,deviceManagementApplicabilityRuleDeviceMode,version", query, schema, metadata)
+    in
+        result;
+
 ManagedDevices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("managedDevice", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/managedDevices", query, schema, metadata)
@@ -232,6 +258,30 @@ RemoteActionAudits = (tenants as list, isCount as logical, schemaOnly as logical
     in 
         result;
 
+SubscriptionState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("deviceManagementSubscriptionState", isCount, schemaOnly, tenants, "beta", false, "/beta/deviceManagement/subscriptionState", query, schema, metadata)
+    in
+        result;
+
+UserExperienceAnalyticsDevicePerformance = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("userExperienceAnalyticsDevicePerformance", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDevicePerformance", query, schema, metadata)
+    in
+        result;
+
+UserExperienceAnalyticsDeviceStartupProcessPerformance = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("userExperienceAnalyticsDeviceStartupProcessPerformance", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDeviceStartupProcessPerformance", query, schema, metadata)
+    in
+        result;
+
+WindowsMalwareInformation = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("windowsMalwareInformation", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/windowsMalwareInformation", query, schema, metadata)
+    in
+        result;
+
 // Entities
 
 EntityTable = #table({"Entity", "Action"}, {
@@ -240,6 +290,8 @@ EntityTable = #table({"Entity", "Action"}, {
     { "Contracts", Contracts },
     { "CredentialUserRegistrationDetails", CredentialUserRegistrationDetails },
     { "DetectedMalwareState", DetectedMalwareState },
+    { "DeviceCompliancePolicies", DeviceCompliancePolicies },
+    { "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
     { "Domains", Domains },
     { "Devices", Devices },
     { "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy },
@@ -257,8 +309,12 @@ EntityTable = #table({"Entity", "Action"}, {
     { "SharePointSiteUsageDetail", SharePointSiteUsageDetail },
     { "SignIns", SignIns },
     { "SubscribedSkus", SubscribedSkus },
+    { "SubscriptionState", SubscriptionState },
     { "TeamsUserActivityUserDetail", TeamsUserActivityUserDetail },
+    { "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance },
+    { "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
     { "Users", Users },
+    { "WindowsMalwareInformation", WindowsMalwareInformation },
     { "YammerActivityUserDetail", YammerActivityUserDetail }
 });
 
@@ -422,7 +478,7 @@ SecureScoreControlProfiles = (tenants as list, isCount as logical, schemaOnly as
 [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
 shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
 
-NavigationTable = (friendlyName as text) as table =>
+NavigationTable = (friendlyName as text, optional tenants as list, optional batchSize as number) as table =>
     let
         tenants = null, 
 
