@@ -140,37 +140,46 @@ TokenMethod = (tokenUri, grantType, tokenField, parameter, optional scope as tex
 
 // Azure Active Directory
 
-ConditionalAccessPolicies = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+ConditionalAccessPolicies = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         result = Request.GetData("conditionalAccessPolicy", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/identity/conditionalAccess/policies", query, schema, metadata)
     in 
         result;
 
-Contracts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Contracts = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
+        // So, the question here is should we inject the partner tenant to this request. 
+        /*
+         * Options 
+         * 1 - No, if the partner wants their customers they should pass their organization identifier 
+         * 2- Yes, but this will change the way this single function operates in comparision to all the others
+         *
+         * The consuming partner might not know their partner tenant identifier, so that can reduce the use of the 
+         * connector because the partner would not know how to get started.
+         */
         result = Request.GetData("contract", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
     in
         result;
 
-CredentialUserRegistrationDetails = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+CredentialUserRegistrationDetails = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("credentialUserRegistrationDetails", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/credentialUserRegistrationDetails", query, schema, metadata)
     in
         result;
 
-Devices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Devices = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("device", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/devices", query, schema, metadata)
     in
         result;
 
-Domains = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Domains = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("domain", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/domains", query, schema, metadata)
     in
         result;
 
-LicenseDetails = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+LicenseDetails = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = if(schemaOnly) then 
                 Schema.GetKnownType(metadata{[Version = "v1.0"]}[Value], "licenseDetails", "tenantId = text, userId = text")
@@ -182,33 +191,33 @@ LicenseDetails = (tenants as list, isCount as logical, schemaOnly as logical, op
                     renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/users/" & [userId] & "/licenseDetails"),
                     
-                    batchResponse = Request.Batch(batchRequests, false, true)
+                    batchResponse = Request.Batch(batchRequests, batchSize, false)
                 in 
                    batchResponse
     in
         result;
 
-IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
         result = Request.GetData("identitySecurityDefaultsEnforcementPolicy", isCount, schemaOnly, tenants, "v1.0", false, "/v1.0/policies/identitySecurityDefaultsEnforcementPolicy", removedTopParameter, schema, metadata)
     in 
         result;
 
-SignIns = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+SignIns = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         result = Request.GetData("signIn", isCount, schemaOnly, tenants, "beta", true, "/beta/auditLogs/signIns", query, schema, metadata)
     in 
         result;
 
-SubscribedSkus = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+SubscribedSkus = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
         result = Request.GetData("subscribedSku", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/subscribedSkus", removedTopParameter, schema, metadata)
     in
         result;
 
-Users = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) => 
+Users = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) => 
     let
         result = Request.GetData("user", isCount, schemaOnly, tenants, "beta", true, "/beta/users", query, schema, metadata)
     in 
@@ -216,7 +225,7 @@ Users = (tenants as list, isCount as logical, schemaOnly as logical, optional qu
 
 // Device Management 
 
-DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+DetectedMalwareState = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
          result = if(schemaOnly) then 
                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId = text")
@@ -228,55 +237,55 @@ DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logic
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
                     
-                    batchResponse = Request.Batch(batchRequests, true, true)
+                    batchResponse = Request.Batch(batchRequests, batchSize, true)
                 in 
                    batchResponse
     in 
         result;
 
-DeviceCompliancePolicies = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+DeviceCompliancePolicies = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("deviceCompliancePolicy", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/deviceCompliancePolicies?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,version", query, schema, metadata)
     in
         result;
 
-DeviceConfigurationProfiles = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+DeviceConfigurationProfiles = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("deviceConfiguration", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/deviceConfigurations?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,supportsScopeTags,deviceManagementApplicabilityRuleOsEdition,deviceManagementApplicabilityRuleOsVersion,deviceManagementApplicabilityRuleDeviceMode,version", query, schema, metadata)
     in
         result;
 
-ManagedDevices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+ManagedDevices = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("managedDevice", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/managedDevices", query, schema, metadata)
     in
         result;
 
-RemoteActionAudits = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+RemoteActionAudits = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("remoteActionAudit", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/remoteActionAudits", query, schema, metadata)
     in 
         result;
 
-SubscriptionState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+SubscriptionState = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("deviceManagementSubscriptionState", isCount, schemaOnly, tenants, "beta", false, "/beta/deviceManagement/subscriptionState", query, schema, metadata)
     in
         result;
 
-UserExperienceAnalyticsDevicePerformance = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+UserExperienceAnalyticsDevicePerformance = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("userExperienceAnalyticsDevicePerformance", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDevicePerformance", query, schema, metadata)
     in
         result;
 
-UserExperienceAnalyticsDeviceStartupProcessPerformance = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+UserExperienceAnalyticsDeviceStartupProcessPerformance = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("userExperienceAnalyticsDeviceStartupProcessPerformance", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDeviceStartupProcessPerformance", query, schema, metadata)
     in
         result;
 
-WindowsMalwareInformation = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+WindowsMalwareInformation = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("windowsMalwareInformation", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/windowsMalwareInformation", query, schema, metadata)
     in
@@ -352,7 +361,7 @@ Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
 // Helpers 
 
-Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =>
+Request.Batch = (input as table, batchSize as number, isBetaRequest as logical) =>
     let 
         GetData = (tenantId as text, input as table) as table =>
             let
@@ -379,10 +388,10 @@ Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =
                 indexValue = Value.Metadata(previous)[Index]?,
                 index = if(indexValue <> null) then indexValue else 0,
 
-                data = if(index = 0) then Table.FirstN(requests, 5) else 
+                data = if(index = 0) then Table.FirstN(requests, batchSize) else 
                     let
                         initialValue = Table.Skip(requests, index), 
-                        newValue = Table.FirstN(initialValue, 5)
+                        newValue = Table.FirstN(initialValue, batchSize)
                     in
                         if (Table.IsEmpty(newValue)) then null else newValue,
 
@@ -397,7 +406,7 @@ Request.Batch = (input as table, isBetaRequest as logical, isPaged as logical) =
                     in
                         joinedTable
             in
-                output meta [Index = index + 5]),
+                output meta [Index = index + batchSize]),
 
         groupedRows = Table.Group(input, {"tenantId"}, {{"requests", each _}}),
         runRequest = Table.AddColumn(groupedRows, "responses", each Process([tenantId], [requests])),
@@ -447,7 +456,7 @@ Request.GetData = (resource as text, isCount as logical, schemaOnly as logical, 
 
 // Identity Protection 
 
-RiskDetections = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+RiskDetections = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("riskDetection", isCount, schemaOnly, tenants, "beta", true, "/beta/identityProtection/riskDetections", query, schema, metadata)
     in 
@@ -455,19 +464,19 @@ RiskDetections = (tenants as list, isCount as logical, schemaOnly as logical, op
 
 // Intelligent Security Graph
 
-Alerts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Alerts = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("alert", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/alerts", query, schema, metadata)
     in 
         result;
 
-SecureScore = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+SecureScore = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("secureScore", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScores", query, schema, metadata)
     in 
         result;
 
-SecureScoreControlProfiles = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+SecureScoreControlProfiles = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("secureScoreControlProfile", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
     in
@@ -480,8 +489,6 @@ shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Mic
 
 NavigationTable = (friendlyName as text, optional tenants as list, optional batchSize as number) as table =>
     let
-        tenants = null, 
-
         GetMetadata = (version as text) =>
             let
                 data = Web.Contents(Uri.Combine(graph_endpoint, version & "/$metadata")), 
@@ -500,11 +507,13 @@ NavigationTable = (friendlyName as text, optional tenants as list, optional batc
             { "v1.0", GetMetadata("v1.0") }
         }),
 
+        sizeOfBatchRequests = if(batchSize <> null) then batchSize else DEFAULT_BATCH_SIZE,
+
         // Use our schema table as the source of top level items in the navigation tree
         entities = Table.SelectColumns(EntityTable, {"Entity"}),
         rename = Table.RenameColumns(entities, {{"Entity", "Name"}}),
         // Add Data as a calculated column
-        withData = Table.AddColumn(rename, "Data", each View([Name], metadata, listOfTenants), type table),
+        withData = Table.AddColumn(rename, "Data", each View([Name], metadata, listOfTenants, sizeOfBatchRequests), type table),
         // Add ItemKind and ItemName as fixed text values
         withItemKind = Table.AddColumn(withData, "ItemKind", each "Table", type text),
         withItemName = Table.AddColumn(withItemKind, "ItemName", each "Table", type text),
@@ -515,7 +524,7 @@ NavigationTable = (friendlyName as text, optional tenants as list, optional batc
     in
         navTable;
 
-View = (entity as text, metadata as table, tenants as list) as table =>
+View = (entity as text, metadata as table, tenants as list, batchSize as number) as table =>
     let
         // Implementation of Table.View handlers.
         //
@@ -532,7 +541,7 @@ View = (entity as text, metadata as table, tenants as list) as table =>
                 let
                     finalSchema = CalculateSchema(state),
                     finalQueryString = CalculateQueryString(state),
-                    result = GetActionForEntity(entity)(tenants, false, false, finalQueryString, finalSchema),
+                    result = GetActionForEntity(entity)(tenants, batchSize, false, false, finalQueryString, finalSchema),
                     appliedType = Table.ChangeType(result, finalSchema)
                 in
                     appliedType,
@@ -551,7 +560,7 @@ View = (entity as text, metadata as table, tenants as list) as table =>
                     let
                         newState = state & [ RowCountOnly = true ],
                         finalQueryString = CalculateQueryString(newState),
-                        value = GetActionForEntity(entity)(tenants, true, false, finalQueryString),
+                        value = GetActionForEntity(entity)(tenants, batchSize, true, false, finalQueryString),
                         converted = Number.FromText(value)
                     in
                         converted,
@@ -626,7 +635,7 @@ View = (entity as text, metadata as table, tenants as list) as table =>
             // entity name that was passed into the function.
             CalculateSchema = (state) as type =>
                 if (state[Schema]? = null) then
-                    GetActionForEntity(entity)(tenants, false, true, null, null, metadata)
+                    GetActionForEntity(entity)(tenants, batchSize, false, true, null, null, metadata)
                 else
                     state[Schema],
 
@@ -800,49 +809,49 @@ Rest.Scalar = (requests as table) =>
 
 // Reporting 
 
-MailboxUsageDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+MailboxUsageDetail = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("mailboxUsageDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getMailboxUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
-Office365ActivationsUserDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Office365ActivationsUserDetail = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         result = Request.GetData("office365ActivationsUserDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getOffice365ActivationsUserDetail?$format=application/json", query, schema, metadata)
     in 
         result;
 
-Office365ActiveUserDetails = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Office365ActiveUserDetails = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         result = Request.GetData("office365ActiveUserDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getOffice365ActiveUserDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
-Office365ServicesUserCounts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+Office365ServicesUserCounts = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         result = Request.GetData("office365ServicesUserCounts", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getOffice365ServicesUserCounts(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
-OneDriveUsageAccountDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+OneDriveUsageAccountDetail = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         result = Request.GetData("oneDriveUsageAccountDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getOneDriveUsageAccountDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
-SharePointSiteUsageDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+SharePointSiteUsageDetail = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         result = Request.GetData("sharePointSiteUsageDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getSharePointSiteUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
-TeamsUserActivityUserDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+TeamsUserActivityUserDetail = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         result = Request.GetData("teamsUserActivityUserDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getTeamsUserActivityUserDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
-YammerActivityUserDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+YammerActivityUserDetail = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         result = Request.GetData("yammerActivityUserDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getYammerActivityUserDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
