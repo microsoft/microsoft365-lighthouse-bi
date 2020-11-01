@@ -148,15 +148,6 @@ ConditionalAccessPolicies = (tenants as list, batchSize as number, isCount as lo
 
 Contracts = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        // So, the question here is should we inject the partner tenant to this request. 
-        /*
-         * Options 
-         * 1 - No, if the partner wants their customers they should pass their organization identifier 
-         * 2- Yes, but this will change the way this single function operates in comparision to all the others
-         *
-         * The consuming partner might not know their partner tenant identifier, so that can reduce the use of the 
-         * connector because the partner would not know how to get started.
-         */
         result = Request.GetData("contract", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
     in
         result;
@@ -202,6 +193,20 @@ IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, batchSize as numbe
         removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
         result = Request.GetData("identitySecurityDefaultsEnforcementPolicy", isCount, schemaOnly, tenants, "v1.0", false, "/v1.0/policies/identitySecurityDefaultsEnforcementPolicy", removedTopParameter, schema, metadata)
     in 
+        result;
+
+MyContracts = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
+        result = Request.GetData("contract", isCount, schemaOnly, {}, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
+    in
+        result;
+
+MyOrganization = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
+        result = Request.GetData("organization", isCount, schemaOnly, {}, "v1.0", true, "/v1.0/organization", query, schema, metadata)
+    in
         result;
 
 SignIns = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
@@ -307,6 +312,8 @@ EntityTable = #table({"Entity", "Action"}, {
     { "LicenseDetails", LicenseDetails },
     { "MailboxUsageDetail", MailboxUsageDetail },
     { "ManagedDevices", ManagedDevices },
+    { "MyContracts", MyContracts },
+    { "MyOrganization", MyOrganization },
     { "Office365ActivationsUserDetail", Office365ActivationsUserDetail },
     { "Office365ActiveUserDetails", Office365ActiveUserDetails },
     { "Office365ServicesUserCounts", Office365ServicesUserCounts },
