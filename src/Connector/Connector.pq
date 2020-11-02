@@ -381,6 +381,30 @@ WindowsProtectionState = (tenants as list, batchSize as number, isCount as logic
     in 
         result;
 
+WindowsUpdateForBusinessConfigurationStates = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+         result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsUpdateState", "tenantId = text, policyId = text")
+            else
+                let
+                    requests = Request.Build(tenants, "/beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)&$select=id"),
+                    response = Rest.Feed(requests, true),
+
+                    renamed = Table.RenameColumns(response, {"id", "policyId"}, MissingField.Ignore),
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/deviceConfigurations/" & [policyId] & "/microsoft.graph.windowsUpdateForBusinessConfiguration/deviceUpdateStates"),
+                    
+                    batchResponse = Request.Batch(batchRequests, batchSize, true)
+                in 
+                   batchResponse
+    in 
+        result;
+
+WindowsUpdateForBusinessConfigurations = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("windowsUpdateForBusinessConfiguration", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)", query, schema, metadata)
+    in
+        result;
+
 // Entities
 
 EntityTable = #table({"Entity", "Action"}, {
@@ -420,6 +444,8 @@ EntityTable = #table({"Entity", "Action"}, {
     { "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
     { "Users", Users },
     { "WindowsProtectionState", WindowsProtectionState },
+    { "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
+    { "WindowsUpdateForBusinessConfigurations", WindowsUpdateForBusinessConfigurations },
     { "YammerActivityUserDetail", YammerActivityUserDetail }
 });
 
@@ -618,7 +644,9 @@ GetEndpointManagerNavigationTable = (metadata as table, tenants as list, batchSi
             { "Subscription State", "SubscriptionState", View("SubscriptionState", metadata, tenants, batchSize), "Table", "Table", true },
             { "User Experience Analytics Device Performance", "UserExperienceAnalyticsDevicePerformance", View("UserExperienceAnalyticsDevicePerformance", metadata, tenants, batchSize), "Table", "Table", true },
             { "User Experience Analytics Device Startup Process Performance", "UserExperienceAnalyticsDeviceStartupProcessPerformance", View("UserExperienceAnalyticsDeviceStartupProcessPerformance", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Windows Protection State", "WindowsProtectionState", View("WindowsProtectionState", metadata, tenants, batchSize), "Table", "Table", true }}),
+            { "Windows Protection State", "WindowsProtectionState", View("WindowsProtectionState", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Windows Update for Business Configurations", "WindowsUpdateForBusinessConfigurations", View("WindowsUpdateForBusinessConfigurations", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Windows Update for Business Configuration States", "WindowsUpdateForBusinessConfigurationStates", View("WindowsUpdateForBusinessConfigurationStates", metadata, tenants, batchSize), "Table", "Table", true }}),
 
         navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in 
