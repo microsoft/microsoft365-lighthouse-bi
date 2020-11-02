@@ -8,7 +8,7 @@ graph_endpoint = "https://graph.microsoft.com";
 logout_uri = "https://login.microsoftonline.com/logout.srf";
 redirect_uri = "https://oauth.powerbi.com/views/oauthredirect.html";
 token_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/token";
-version = "0.0.1";
+version = "0.0.1-alpha";
 
 // Default variables
 
@@ -24,7 +24,8 @@ Microsoft365Lighthouse = [
             Refresh = Refresh,
             StartLogin = StartLogin
         ]
-    ]
+    ], 
+    TestConnection = (value) => { "Microsoft365Lighthouse.Contents" }
 ];
 
 // Data Source UI publishing description
@@ -494,6 +495,73 @@ SecureScoreControlProfiles = (tenants as list, batchSize as number, isCount as l
 [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
 shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
 
+GetAzureAdNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
+    let
+        entities = #table(
+            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
+            { "Conditional Access Policies", "ConditionalAccessPolicies", View("ConditionalAccessPolicies", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Contracts", "Contracts", View("Contracts", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Credential User Registration Details", "CredentialUserRegistrationDetails", View("CredentialUserRegistrationDetails", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Devices", "Devices", View("Devices", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Domains", "Domains", View("Domains", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Identity Security Defaults Enforcement Policy", "IdentitySecurityDefaultsEnforcementPolicy", View("IdentitySecurityDefaultsEnforcementPolicy", metadata, tenants, batchSize), "Table", "Table", true },
+            { "License Details", "LicenseDetails", View("LicenseDetails", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Sign Ins", "SignIns", View("SignIns", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Subscribed SKUs", "SubscribedSkus", View("SubscribedSkus", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Users", "Users", View("Users", metadata, tenants, batchSize), "Table", "Table", true }}),
+
+        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+    in 
+        navTable;
+
+
+GetIntelligentSecurityNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
+    let
+        entities = #table(
+            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
+            { "Alerts", "Alerts", View("Aleters", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Secure Score", "SecureScore", View("SecureScore", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Secure Score Control Profiles", "SecureScoreControlProfiles", View("SecureScoreControlProfiles", metadata, tenants, batchSize), "Table", "Table", true }}),
+
+        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+    in 
+        navTable;
+
+GetIntuneNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
+    let
+        entities = #table(
+            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
+            { "Detected Malware State", "DetectedMalwareState", View("DetectedMalwareState", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Device Compliance Policies", "DeviceCompliancePolicies", View("DeviceCompliancePolicies", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Device Configuration Profiles", "DeviceConfigurationProfiles", View("DeviceConfigurationProfiles", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Managed Devices", "ManagedDevices", View("ManagedDevices", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Remote Action Audits", "RemoteActionAudits", View("RemoteActionAudits", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Subscription State", "SubscriptionState", View("SubscriptionState", metadata, tenants, batchSize), "Table", "Table", true },
+            { "User Experience Analytics Device Performance", "UserExperienceAnalyticsDevicePerformance", View("UserExperienceAnalyticsDevicePerformance", metadata, tenants, batchSize), "Table", "Table", true },
+            { "User Experience Analytics Device Startup Process Performance", "UserExperienceAnalyticsDeviceStartupProcessPerformance", View("UserExperienceAnalyticsDeviceStartupProcessPerformance", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Windows Malware Information", "WindowsMalwareInformation", View("WindowsMalwareInformation", metadata, tenants, batchSize), "Table", "Table", true }}),
+
+        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+    in 
+        navTable;
+
+GetReportingNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
+    let
+        entities = #table(
+            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
+            { "Mailbox Usage Detail", "MailboxUsageDetail", View("MailboxUsageDetail", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Office 365 Activations User Detail", "Office365ActivationsUserDetail", View("Office365ActivationsUserDetail", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Office 365 Active User Details", "Office365ActiveUserDetails", View("Office365ActiveUserDetails", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Office 365 Services User Counts", "Office365ServicesUserCounts", View("Office365ServicesUserCounts", metadata, tenants, batchSize), "Table", "Table", true },
+            { "OneDrive Usage Account Detail", "OneDriveUsageAccountDetail", View("OneDriveUsageAccountDetail", metadata, tenants, batchSize), "Table", "Table", true },
+            { "SharePoint Site Usage Detail", "SharePointSiteUsageDetail", View("SharePointSiteUsageDetail", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Teams User Activity User Detail", "TeamsUserActivityUserDetail", View("TeamsUserActivityUserDetail", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Yammer Activity User Detail", "YammerActivityUserDetail", View("YammerActivityUserDetail", metadata, tenants, batchSize), "Table", "Table", true }}),
+
+        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+    in 
+        navTable;
+
 NavigationTable = (friendlyName as text, optional tenants as list, optional batchSize as number) as table =>
     let
         GetMetadata = (version as text) =>
@@ -516,18 +584,14 @@ NavigationTable = (friendlyName as text, optional tenants as list, optional batc
 
         sizeOfBatchRequests = if(batchSize <> null) then batchSize else DEFAULT_BATCH_SIZE,
 
-        // Use our schema table as the source of top level items in the navigation tree
-        entities = Table.SelectColumns(EntityTable, {"Entity"}),
-        rename = Table.RenameColumns(entities, {{"Entity", "Name"}}),
-        // Add Data as a calculated column
-        withData = Table.AddColumn(rename, "Data", each View([Name], metadata, listOfTenants, sizeOfBatchRequests), type table),
-        // Add ItemKind and ItemName as fixed text values
-        withItemKind = Table.AddColumn(withData, "ItemKind", each "Table", type text),
-        withItemName = Table.AddColumn(withItemKind, "ItemName", each "Table", type text),
-        // Indicate that the node should not be expandable
-        withIsLeaf = Table.AddColumn(withItemName, "IsLeaf", each true, type logical),
-        // Generate the nav table
-        navTable = Table.ToNavigationTable(withIsLeaf, {"Name"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+        entities = #table(
+            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" },  {
+            { Extension.LoadString("AzureAd"), "AzureAd", GetAzureAdNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "AzureAd", false },
+            { Extension.LoadString("IntelligentSecurity"), "IntelligentSecurity", GetIntelligentSecurityNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "IntelligentSecurity", false },
+            { Extension.LoadString("Intune"), "Intune", GetIntuneNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "Intune", false},
+            { Extension.LoadString("Reporting"), "Reporting", GetReportingNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "Reporting", false }}),
+
+        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in
         navTable;
 
@@ -707,6 +771,7 @@ Rest.Feed = (requests as table, isPaged as logical, optional schema as type) =>
                     else
                         Rest.GetContents(input[secMgmtInsightsRequest], GetAccessToken(input[tenantId], input[secMgmtInsightsScope]), isPaged and requestContainsTopQuery, schema),
 
+                // TODO - If the record has an error, then it should return an error and not null
                 response = if(data[HasError] or Table.IsEmpty(data[Value])) then 
                         let
                             listOfFields = List.RemoveMatchingItems(Record.FieldNames(input), { "secMgmtInsightsRequest" }),
@@ -796,7 +861,14 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
         options = if(content <> null) then Record.AddField(baseOptions, "Content", Text.ToBinary(content)) else baseOptions, 
 
         response = Web.Contents(url, Record.AddField(options, "Headers", headers)),
-        buffered = Binary.Buffer(response)
+        buffered = Binary.Buffer(response),
+
+        // TODO - Expression.Error: We cannot convert a value of type Binary to type Record.
+
+        result = if(Record.HasFields(buffered, {"error"})) then 
+                error Error.Record(buffered[error][code], buffered[error][message])
+            else 
+                buffered
     in 
         buffered;
 

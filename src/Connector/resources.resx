@@ -117,6 +117,9 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="AzureAd" xml:space="preserve">
+    <value>Azure Active Directory</value>
+  </data>
   <data name="ButtonHelp" xml:space="preserve">
     <value>Connect to Microsoft 365 Lighthouse</value>
   </data>
@@ -125,5 +128,17 @@
   </data>
   <data name="DataSourceLabel" xml:space="preserve">
     <value>Microsoft 365 Lighthouse</value>
+  </data>
+  <data name="IdentityProtection" xml:space="preserve">
+    <value>Identity Protection</value>
+  </data>
+  <data name="IntelligentSecurity" xml:space="preserve">
+    <value>Intelligent Security</value>
+  </data>
+  <data name="Intune" xml:space="preserve">
+    <value>Microsoft Intune</value>
+  </data>
+  <data name="Reporting" xml:space="preserve">
+    <value>Reporting</value>
   </data>
 </root>
