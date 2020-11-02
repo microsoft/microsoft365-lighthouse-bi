@@ -363,10 +363,22 @@ UserExperienceAnalyticsDeviceStartupProcessPerformance = (tenants as list, batch
     in
         result;
 
-WindowsMalwareInformation = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+WindowsProtectionState = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("windowsMalwareInformation", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/windowsMalwareInformation", query, schema, metadata)
-    in
+         result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsProtectionState", "tenantId = text, deviceId = text")
+            else
+                let
+                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
+                    response = Rest.Feed(requests, true),
+
+                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/"),
+                    
+                    batchResponse = Request.Batch(batchRequests, batchSize, true)
+                in 
+                   batchResponse
+    in 
         result;
 
 // Entities
@@ -407,7 +419,7 @@ EntityTable = #table({"Entity", "Action"}, {
     { "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance },
     { "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
     { "Users", Users },
-    { "WindowsMalwareInformation", WindowsMalwareInformation },
+    { "WindowsProtectionState", WindowsProtectionState },
     { "YammerActivityUserDetail", YammerActivityUserDetail }
 });
 
@@ -606,7 +618,7 @@ GetEndpointManagerNavigationTable = (metadata as table, tenants as list, batchSi
             { "Subscription State", "SubscriptionState", View("SubscriptionState", metadata, tenants, batchSize), "Table", "Table", true },
             { "User Experience Analytics Device Performance", "UserExperienceAnalyticsDevicePerformance", View("UserExperienceAnalyticsDevicePerformance", metadata, tenants, batchSize), "Table", "Table", true },
             { "User Experience Analytics Device Startup Process Performance", "UserExperienceAnalyticsDeviceStartupProcessPerformance", View("UserExperienceAnalyticsDeviceStartupProcessPerformance", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Windows Malware Information", "WindowsMalwareInformation", View("WindowsMalwareInformation", metadata, tenants, batchSize), "Table", "Table", true }}),
+            { "Windows Protection State", "WindowsProtectionState", View("WindowsProtectionState", metadata, tenants, batchSize), "Table", "Table", true }}),
 
         navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in 
