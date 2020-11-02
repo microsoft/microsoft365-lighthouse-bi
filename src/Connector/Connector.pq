@@ -327,6 +327,24 @@ RemoteActionAudits = (tenants as list, batchSize as number, isCount as logical, 
     in 
         result;
 
+SecurityBaselineStates = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+         result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "securityBaselineState", "tenantId = text, deviceId = text")
+            else
+                let
+                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
+                    response = Rest.Feed(requests, true),
+
+                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/securityBaselineStates"),
+                    
+                    batchResponse = Request.Batch(batchRequests, batchSize, true)
+                in 
+                   batchResponse
+    in 
+        result;
+
 SubscriptionState = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("deviceManagementSubscriptionState", isCount, schemaOnly, tenants, "beta", false, "/beta/deviceManagement/subscriptionState", query, schema, metadata)
@@ -380,6 +398,7 @@ EntityTable = #table({"Entity", "Action"}, {
     { "RiskDetections", RiskDetections },
     { "SecureScore", SecureScore },
     { "SecureScoreControlProfiles", SecureScoreControlProfiles }, 
+    { "SecurityBaselineStates", SecurityBaselineStates },
     { "SharePointSiteUsageDetail", SharePointSiteUsageDetail },
     { "SignIns", SignIns },
     { "SubscribedSkus", SubscribedSkus },
@@ -583,6 +602,7 @@ GetEndpointManagerNavigationTable = (metadata as table, tenants as list, batchSi
             { "Device Configuration States", "DeviceConfigurationStates", View("DeviceConfigurationStates", metadata, tenants, batchSize), "Table", "Table", true },
             { "Managed Devices", "ManagedDevices", View("ManagedDevices", metadata, tenants, batchSize), "Table", "Table", true },
             { "Remote Action Audits", "RemoteActionAudits", View("RemoteActionAudits", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Security Baseline States", "SecurityBaselineState", View("SecurityBaselineState", metadata, tenants, batchSize), "Table", "Table", true },
             { "Subscription State", "SubscriptionState", View("SubscriptionState", metadata, tenants, batchSize), "Table", "Table", true },
             { "User Experience Analytics Device Performance", "UserExperienceAnalyticsDevicePerformance", View("UserExperienceAnalyticsDevicePerformance", metadata, tenants, batchSize), "Table", "Table", true },
             { "User Experience Analytics Device Startup Process Performance", "UserExperienceAnalyticsDeviceStartupProcessPerformance", View("UserExperienceAnalyticsDeviceStartupProcessPerformance", metadata, tenants, batchSize), "Table", "Table", true },
