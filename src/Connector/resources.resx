@@ -138,6 +138,9 @@
   <data name="Intune" xml:space="preserve">
     <value>Microsoft Intune</value>
   </data>
+  <data name="Partner" xml:space="preserve">
+    <value>Partner</value>
+  </data>
   <data name="Reporting" xml:space="preserve">
     <value>Reporting</value>
   </data>
