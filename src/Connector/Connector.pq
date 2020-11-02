@@ -273,10 +273,46 @@ DeviceCompliancePolicies = (tenants as list, batchSize as number, isCount as log
     in
         result;
 
+DeviceCompliancePolicyStates = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+         result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "deviceCompliancePolicyState", "tenantId = text, deviceId = text")
+            else
+                let
+                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
+                    response = Rest.Feed(requests, true),
+
+                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/deviceCompliancePolicyStates"),
+                    
+                    batchResponse = Request.Batch(batchRequests, batchSize, true)
+                in 
+                   batchResponse
+    in 
+        result;
+
 DeviceConfigurationProfiles = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("deviceConfiguration", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/deviceConfigurations?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,supportsScopeTags,deviceManagementApplicabilityRuleOsEdition,deviceManagementApplicabilityRuleOsVersion,deviceManagementApplicabilityRuleDeviceMode,version", query, schema, metadata)
     in
+        result;
+
+DeviceConfigurationStates = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+         result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "deviceConfigurationState", "tenantId = text, deviceId = text")
+            else
+                let
+                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
+                    response = Rest.Feed(requests, true),
+
+                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/deviceConfigurationStates"),
+                    
+                    batchResponse = Request.Batch(batchRequests, batchSize, true)
+                in 
+                   batchResponse
+    in 
         result;
 
 ManagedDevices = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
@@ -325,7 +361,9 @@ EntityTable = #table({"Entity", "Action"}, {
     { "DetectedApps", DetectedApps },
     { "DetectedMalwareState", DetectedMalwareState },
     { "DeviceCompliancePolicies", DeviceCompliancePolicies },
+    { "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates },
     { "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
+    { "DeviceConfigurationStates", DeviceConfigurationStates },
     { "Domains", Domains },
     { "Devices", Devices },
     { "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy },
@@ -445,7 +483,7 @@ Request.Batch = (input as table, batchSize as number, isBetaRequest as logical) 
         // any issue with duplicate columns names when expanding the response from the API.
         removed = Table.RemoveColumns(responses, {"id", "method", "secMgmtInsightsRequest", "status", "url"}, MissingField.Ignore),
 
-        expandedBody = Table.ExpandRecordColumn(removed, "body", {"@odata.context", "value"}, {"@odata.context", "value"}),
+        expandedBody = Table.ExpandRecordColumn(removed, "body", {"value"}),
         expandedValue = Table.ExpandListColumn(expandedBody, "value"),
                         
         filteredRows = Table.SelectRows(expandedValue, each [value] <> null and [value] <> ""),
@@ -533,6 +571,26 @@ GetAzureAdNavigationTable = (metadata as table, tenants as list, batchSize as nu
     in 
         navTable;
 
+GetEndpointManagerNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
+    let
+        entities = #table(
+            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
+            { "Detected Apps", "DetectedApps", View("DetectedApps", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Detected Malware State", "DetectedMalwareState", View("DetectedMalwareState", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Device Compliance Policies", "DeviceCompliancePolicies", View("DeviceCompliancePolicies", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Device Compliance Policy States", "DeviceCompliancePolicyStates", View("DeviceCompliancePolicyStates", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Device Configuration Profiles", "DeviceConfigurationProfiles", View("DeviceConfigurationProfiles", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Device Configuration States", "DeviceConfigurationStates", View("DeviceConfigurationStates", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Managed Devices", "ManagedDevices", View("ManagedDevices", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Remote Action Audits", "RemoteActionAudits", View("RemoteActionAudits", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Subscription State", "SubscriptionState", View("SubscriptionState", metadata, tenants, batchSize), "Table", "Table", true },
+            { "User Experience Analytics Device Performance", "UserExperienceAnalyticsDevicePerformance", View("UserExperienceAnalyticsDevicePerformance", metadata, tenants, batchSize), "Table", "Table", true },
+            { "User Experience Analytics Device Startup Process Performance", "UserExperienceAnalyticsDeviceStartupProcessPerformance", View("UserExperienceAnalyticsDeviceStartupProcessPerformance", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Windows Malware Information", "WindowsMalwareInformation", View("WindowsMalwareInformation", metadata, tenants, batchSize), "Table", "Table", true }}),
+
+        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+    in 
+        navTable;
 
 GetIntelligentSecurityNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
     let
@@ -541,25 +599,6 @@ GetIntelligentSecurityNavigationTable = (metadata as table, tenants as list, bat
             { "Alerts", "Alerts", View("Aleters", metadata, tenants, batchSize), "Table", "Table", true },
             { "Secure Score", "SecureScore", View("SecureScore", metadata, tenants, batchSize), "Table", "Table", true },
             { "Secure Score Control Profiles", "SecureScoreControlProfiles", View("SecureScoreControlProfiles", metadata, tenants, batchSize), "Table", "Table", true }}),
-
-        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
-    in 
-        navTable;
-
-GetIntuneNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
-    let
-        entities = #table(
-            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
-            { "Detected Apps", "DetectedApps", View("DetectedApps", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Detected Malware State", "DetectedMalwareState", View("DetectedMalwareState", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Device Compliance Policies", "DeviceCompliancePolicies", View("DeviceCompliancePolicies", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Device Configuration Profiles", "DeviceConfigurationProfiles", View("DeviceConfigurationProfiles", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Managed Devices", "ManagedDevices", View("ManagedDevices", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Remote Action Audits", "RemoteActionAudits", View("RemoteActionAudits", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Subscription State", "SubscriptionState", View("SubscriptionState", metadata, tenants, batchSize), "Table", "Table", true },
-            { "User Experience Analytics Device Performance", "UserExperienceAnalyticsDevicePerformance", View("UserExperienceAnalyticsDevicePerformance", metadata, tenants, batchSize), "Table", "Table", true },
-            { "User Experience Analytics Device Startup Process Performance", "UserExperienceAnalyticsDeviceStartupProcessPerformance", View("UserExperienceAnalyticsDeviceStartupProcessPerformance", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Windows Malware Information", "WindowsMalwareInformation", View("WindowsMalwareInformation", metadata, tenants, batchSize), "Table", "Table", true }}),
 
         navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in 
@@ -618,8 +657,8 @@ NavigationTable = (friendlyName as text, optional tenants as list, optional batc
         entities = #table(
             { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" },  {
             { Extension.LoadString("AzureAd"), "AzureAd", GetAzureAdNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "AzureAd", false },
+            { Extension.LoadString("EndpointManager"), "EndpointManager", GetEndpointManagerNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "EndpointManager", false},
             { Extension.LoadString("IntelligentSecurity"), "IntelligentSecurity", GetIntelligentSecurityNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "IntelligentSecurity", false },
-            { Extension.LoadString("Intune"), "Intune", GetIntuneNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "Intune", false},
             { Extension.LoadString("My"), "My", GetMyNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "My", false},
             { Extension.LoadString("Reporting"), "Reporting", GetReportingNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "Reporting", false }}),
 
@@ -749,7 +788,7 @@ View = (entity as text, metadata as table, tenants as list, batchSize as number)
                     // are text literals.
                     defaultQueryString = [],
 
-                    // HCeck if we need to add the count query string parameter
+                    // Check if we need to add the count query string parameter
                     qsWithRowCount =
                         if (state[RowCountOnly]? = true) then
                             defaultQueryString & [ #"$count" = true ]

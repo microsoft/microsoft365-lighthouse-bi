@@ -129,14 +129,17 @@
   <data name="DataSourceLabel" xml:space="preserve">
     <value>Microsoft 365 Lighthouse</value>
   </data>
+  <data name="EndpointManager" xml:space="preserve">
+    <value>Microsoft Endpoint Manager</value>
+  </data>
   <data name="IdentityProtection" xml:space="preserve">
     <value>Identity Protection</value>
   </data>
   <data name="IntelligentSecurity" xml:space="preserve">
     <value>Intelligent Security</value>
   </data>
-  <data name="Intune" xml:space="preserve">
-    <value>Microsoft Intune</value>
+  <data name="My" xml:space="preserve">
+    <value>My</value>
   </data>
   <data name="Partner" xml:space="preserve">
     <value>Partner</value>
