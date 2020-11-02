@@ -602,7 +602,7 @@ GetEndpointManagerNavigationTable = (metadata as table, tenants as list, batchSi
             { "Device Configuration States", "DeviceConfigurationStates", View("DeviceConfigurationStates", metadata, tenants, batchSize), "Table", "Table", true },
             { "Managed Devices", "ManagedDevices", View("ManagedDevices", metadata, tenants, batchSize), "Table", "Table", true },
             { "Remote Action Audits", "RemoteActionAudits", View("RemoteActionAudits", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Security Baseline States", "SecurityBaselineState", View("SecurityBaselineState", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Security Baseline States", "SecurityBaselineStates", View("SecurityBaselineStates", metadata, tenants, batchSize), "Table", "Table", true },
             { "Subscription State", "SubscriptionState", View("SubscriptionState", metadata, tenants, batchSize), "Table", "Table", true },
             { "User Experience Analytics Device Performance", "UserExperienceAnalyticsDevicePerformance", View("UserExperienceAnalyticsDevicePerformance", metadata, tenants, batchSize), "Table", "Table", true },
             { "User Experience Analytics Device Startup Process Performance", "UserExperienceAnalyticsDeviceStartupProcessPerformance", View("UserExperienceAnalyticsDeviceStartupProcessPerformance", metadata, tenants, batchSize), "Table", "Table", true },
