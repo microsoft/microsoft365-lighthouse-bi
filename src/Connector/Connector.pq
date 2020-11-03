@@ -656,7 +656,7 @@ GetIntelligentSecurityNavigationTable = (metadata as table, tenants as list, bat
     let
         entities = #table(
             { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
-            { "Alerts", "Alerts", View("Aleters", metadata, tenants, batchSize), "Table", "Table", true },
+            { "Alerts", "Alerts", View("Alerts", metadata, tenants, batchSize), "Table", "Table", true },
             { "Secure Score", "SecureScore", View("SecureScore", metadata, tenants, batchSize), "Table", "Table", true },
             { "Secure Score Control Profiles", "SecureScoreControlProfiles", View("SecureScoreControlProfiles", metadata, tenants, batchSize), "Table", "Table", true }}),
 
