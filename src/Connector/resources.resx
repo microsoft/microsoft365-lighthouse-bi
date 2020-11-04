@@ -135,6 +135,9 @@
   <data name="IdentityProtection" xml:space="preserve">
     <value>Identity Protection</value>
   </data>
+  <data name="InformationProtection" xml:space="preserve">
+    <value>Information Protection</value>
+  </data>
   <data name="IntelligentSecurity" xml:space="preserve">
     <value>Intelligent Security</value>
   </data>

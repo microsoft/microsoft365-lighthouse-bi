@@ -237,6 +237,12 @@ Users = (tenants as list, batchSize as number, isCount as logical, schemaOnly as
 
 // Device Management 
 
+AntivirusIntents = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) => 
+    let
+        result = Request.GetData("deviceManagementIntent", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/intents?$filter=templateId%20eq%20%27a6213d25-e4b3-4888-be36-56c88e0fbd3a%27%20or%20templateId%20eq%20%27b595dad1-920f-440e-ba12-22da622d5d92%27%20or%20templateId%20eq%20%272a68aa33-f853-4572-94bc-7dbdc87fd51e%27%20or%20templateId%20eq%20%27da332b88-bd29-4def-a442-e0993ed08e24%27", query, schema, metadata)
+    in 
+        result;
+
 DetectedApps = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
          result = if(schemaOnly) then 
@@ -324,6 +330,12 @@ DeviceConfigurationStates = (tenants as list, batchSize as number, isCount as lo
 DeviceManagementAuditEvents = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("auditEvent", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/auditEvents", query, schema, metadata)
+    in
+        result;
+
+GroupPolicyConfigurations = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("groupPolicyConfiguration", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/groupPolicyConfigurations", query, schema, metadata)
     in
         result;
 
@@ -447,12 +459,17 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     // Identity Protection
     { "IdentityProtection", "RiskDetections", RiskDetections },
 
+    // Information Protection 
+    { "InformationProtection", "InformationProtectionLabels", InformationProtectionLabels },
+
     // Intelligent Security Graph
     { "IntelligentSecurity", "Alerts", Alerts },
     { "IntelligentSecurity", "SecureScore", SecureScore },
     { "IntelligentSecurity", "SecureScoreControlProfiles", SecureScoreControlProfiles }, 
+    { "IntelligentSecurity", "SecurityActions", SecurityActions },
 
     // Microsoft Endpoint Manager
+    { "EndpointManager", "AntivirusIntents", AntivirusIntents },
     { "EndpointManager", "DetectedApps", DetectedApps },
     { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
     { "EndpointManager", "DeviceCompliancePolicies", DeviceCompliancePolicies },
@@ -460,6 +477,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
     { "EndpointManager", "DeviceConfigurationStates", DeviceConfigurationStates },
     { "EndpointManager", "DeviceManagementAuditEvents", DeviceManagementAuditEvents },
+    { "EndpointManager", "GroupPolicyConfigurations", GroupPolicyConfigurations },
     { "EndpointManager", "ManagedDevices", ManagedDevices },
     { "EndpointManager", "MobileApps", MobileApps },
     { "EndpointManager", "RemoteActionAudits", RemoteActionAudits },
@@ -659,6 +677,27 @@ RiskDetections = (tenants as list, batchSize as number, isCount as logical, sche
     in 
         result;
 
+// Information Protection 
+
+// TODO - Right now this is return a null table, we need to figure out why
+InformationProtectionLabels = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+         result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "informationProtectionLabel", "tenantId = text, userId = text")
+            else
+                let
+                    requests = Request.Build(tenants, "/beta/users?$select=id"),
+                    response = Rest.Feed(requests, true),
+
+                    renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/users/" & [userId] & "/informationProtection/policy/labels"),
+                    
+                    batchResponse = Request.Batch(batchRequests, batchSize, true)
+                in 
+                   batchResponse
+    in 
+        result;
+
 // Intelligent Security Graph
 
 Alerts = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
@@ -677,6 +716,12 @@ SecureScoreControlProfiles = (tenants as list, batchSize as number, isCount as l
     let 
         result = Request.GetData("secureScoreControlProfile", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
     in
+        result;
+
+SecurityActions = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("securityAction", isCount, schemaOnly, tenants, "v1.0", true, "/beta/security/securityActions", query, schema, metadata)
+    in 
         result;
 
 // Microsoft 365 Defender
@@ -1087,6 +1132,14 @@ ServiceMessages = (tenants as list, batchSize as number, isCount as logical, sch
 MailboxUsageDetail = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("mailboxUsageDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getMailboxUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
+    in 
+        result;
+
+M365AppUserDetail = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        // TODO - Need to find a way to contend with the fact there does not appear to be a type in the metadata for this report
+        // TODO - Need to wire this report into the navigation
+        result = Request.GetData("TODO", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getM365AppUserDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
