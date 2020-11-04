@@ -464,7 +464,12 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "Reporting", "OneDriveUsageAccountDetail", OneDriveUsageAccountDetail },
     { "Reporting", "SharePointSiteUsageDetail", SharePointSiteUsageDetail },
     { "Reporting", "TeamsUserActivityUserDetail", TeamsUserActivityUserDetail },
-    { "Reporting", "YammerActivityUserDetail", YammerActivityUserDetail }
+    { "Reporting", "YammerActivityUserDetail", YammerActivityUserDetail },
+
+    // Service Communications 
+    { "ServiceCommunications", "ServiceCurrentStatus", ServiceCurrentStatus },
+    { "ServiceCommunications", "ServiceHistoricalStatus", ServiceHistoricalStatus },
+    { "ServiceCommunications", "ServiceMessages", ServiceMessages }
 });
 
 GetActionForEntity = (entity as text) =>
@@ -580,6 +585,21 @@ Request.Build = (tenants as list, relativeUrl as text, optional query as text) =
         expandedList = Table.ExpandListColumn(data, "tenantId")
     in 
         expandedList;
+
+Request.BuildServiceCommunications = (tenants as list, relativeUrl as text, optional queryString as text) =>
+    let 
+        source = #table({"tenantId", "secMgmtInsightsScope"}, {{tenants, "https://manage.office.com/.default"}}),
+        expandedList = Table.ExpandListColumn(source, "tenantId"),
+        data = Table.AddColumn(expandedList, "secMgmtInsightsRequest", each 
+             if(queryString = null or queryString = "") then 
+                "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl 
+            else if(Text.Contains(relativeUrl, "?")) then 
+                "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl & "&" & Text.AfterDelimiter(queryString, "?")
+            else 
+                "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl & queryString)
+    in 
+        data;
+
 
 Request.GetData = (resource as text, isCount as logical, schemaOnly as logical, tenants as list, version as text, isPaged as logical, relativeUrl as text, optional query, optional schema as type, optional metadata, optional additionalSchema as text) =>
     let
@@ -974,6 +994,47 @@ Rest.Scalar = (requests as table) =>
         data = Table.AddColumn(requests, "Column1", each GetData(_)),
         output =  List.Sum(data[Column1])
     in 
+        output;
+
+// Office 365 Service Communications
+
+ServiceCurrentStatus = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        output = if(schemaOnly) then
+                type table [tenantId = text, Id = text, Workload = text, StatusDate = datetime, WorkloadDisplayName = text, Status = text, IncidentIds = any, FeatureGroupStatusCollection = any]  
+            else 
+                let
+                    requests = Request.BuildServiceCommunications(tenants, "/ServiceComms/CurrentStatus"),
+                    data = Rest.Feed(requests, true, schema)
+                in 
+                    data
+    in
+        output;
+
+ServiceHistoricalStatus = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        output = if(schemaOnly) then
+                type table [tenantId = text, Id = text, Workload = text, StatusDate = datetime, WorkloadDisplayName = text, Status = text, IncidentIds = any, FeatureGroupStatusCollection = any]
+            else 
+                let
+                    requests = Request.BuildServiceCommunications(tenants, "/ServiceComms/HistoricalStatus"),
+                    data = Rest.Feed(requests, true, schema)
+                in 
+                    data
+    in
+        output;
+
+ServiceMessages = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        output = if(schemaOnly) then
+                type table [tenantId = text, Id = text, Name = text, Title = text, StartTime = datetimezone, EndTime = datetimezone, Status = text, Messages = any, LastUpdatedTime = datetimezone, Workload = text, WorkloadDisplayName = text, Feature = text, FeatureDisplayName = text]
+            else 
+                let
+                    requests = Request.BuildServiceCommunications(tenants, "/ServiceComms/Messages"),
+                    data = Rest.Feed(requests, true, schema)
+                in 
+                    data
+    in
         output;
 
 // Reporting 

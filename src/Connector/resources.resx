@@ -141,10 +141,10 @@
   <data name="My" xml:space="preserve">
     <value>My</value>
   </data>
-  <data name="Partner" xml:space="preserve">
-    <value>Partner</value>
-  </data>
   <data name="Reporting" xml:space="preserve">
     <value>Reporting</value>
+  </data>
+  <data name="ServiceCommunications" xml:space="preserve">
+    <value>Service Communications</value>
   </data>
 </root>
