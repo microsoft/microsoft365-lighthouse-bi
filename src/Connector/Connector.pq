@@ -407,46 +407,57 @@ WindowsUpdateForBusinessConfigurations = (tenants as list, batchSize as number, 
 
 // Entities
 
-EntityTable = #table({"Entity", "Action"}, {
-    { "Alerts", Alerts },
-    { "ConditionalAccessPolicies", ConditionalAccessPolicies },
-    { "Contracts", Contracts },
-    { "CredentialUserRegistrationDetails", CredentialUserRegistrationDetails },
-    { "DetectedApps", DetectedApps },
-    { "DetectedMalwareState", DetectedMalwareState },
-    { "DeviceCompliancePolicies", DeviceCompliancePolicies },
-    { "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates },
-    { "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
-    { "DeviceConfigurationStates", DeviceConfigurationStates },
-    { "Domains", Domains },
-    { "Devices", Devices },
-    { "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy },
-    { "LicenseDetails", LicenseDetails },
-    { "MailboxUsageDetail", MailboxUsageDetail },
-    { "ManagedDevices", ManagedDevices },
-    { "MyContracts", MyContracts },
-    { "MyOrganization", MyOrganization },
-    { "Office365ActivationsUserDetail", Office365ActivationsUserDetail },
-    { "Office365ActiveUserDetails", Office365ActiveUserDetails },
-    { "Office365ServicesUserCounts", Office365ServicesUserCounts },
-    { "OneDriveUsageAccountDetail", OneDriveUsageAccountDetail },
-    { "RemoteActionAudits", RemoteActionAudits },
-    { "RiskDetections", RiskDetections },
-    { "SecureScore", SecureScore },
-    { "SecureScoreControlProfiles", SecureScoreControlProfiles }, 
-    { "SecurityBaselineStates", SecurityBaselineStates },
-    { "SharePointSiteUsageDetail", SharePointSiteUsageDetail },
-    { "SignIns", SignIns },
-    { "SubscribedSkus", SubscribedSkus },
-    { "SubscriptionState", SubscriptionState },
-    { "TeamsUserActivityUserDetail", TeamsUserActivityUserDetail },
-    { "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance },
-    { "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
-    { "Users", Users },
-    { "WindowsProtectionState", WindowsProtectionState },
-    { "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
-    { "WindowsUpdateForBusinessConfigurations", WindowsUpdateForBusinessConfigurations },
-    { "YammerActivityUserDetail", YammerActivityUserDetail }
+EntityTable = #table({"Name", "Action", "Workload"}, {
+    // Azure Active Directory 
+    { "ConditionalAccessPolicies", ConditionalAccessPolicies , "AzureAd"},
+    { "Contracts", Contracts, "AzureAd" },
+    { "Domains", Domains, "AzureAd" },
+    { "Devices", Devices, "AzureAd" },
+    { "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy, "AzureAd" },
+    { "LicenseDetails", LicenseDetails, "AzureAd" },
+    { "SignIns", SignIns, "AzureAd" },
+    { "SubscribedSkus", SubscribedSkus, "AzureAd" },
+    { "Users", Users, "AzureAd" },
+
+    // Identity Protection
+    { "RiskDetections", RiskDetections, "IdentityProtection" },
+
+    // Intelligent Security Graph
+    { "Alerts", Alerts, "IntelligentSecurity" },
+    { "SecureScore", SecureScore, "IntelligentSecurity" },
+    { "SecureScoreControlProfiles", SecureScoreControlProfiles, "IntelligentSecurity" }, 
+
+    // Microsoft Endpoint Manager
+    { "DetectedApps", DetectedApps, "EndpointManager" },
+    { "DetectedMalwareState", DetectedMalwareState, "EndpointManager" },
+    { "DeviceCompliancePolicies", DeviceCompliancePolicies, "EndpointManager" },
+    { "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates, "EndpointManager" },
+    { "DeviceConfigurationProfiles", DeviceConfigurationProfiles, "EndpointManager" },
+    { "DeviceConfigurationStates", DeviceConfigurationStates, "EndpointManager" },
+    { "ManagedDevices", ManagedDevices, "EndpointManager" },
+    { "RemoteActionAudits", RemoteActionAudits, "EndpointManager" },
+    { "SecurityBaselineStates", SecurityBaselineStates, "EndpointManager" },
+    { "SubscriptionState", SubscriptionState, "EndpointManager" },
+    { "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance, "EndpointManager" },
+    { "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance, "EndpointManager" },
+    { "WindowsProtectionState", WindowsProtectionState, "EndpointManager" },
+    { "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates, "EndpointManager" },
+    { "WindowsUpdateForBusinessConfigurations", WindowsUpdateForBusinessConfigurations, "EndpointManager" },
+
+    // My
+    { "MyContracts", MyContracts, "My" },
+    { "MyOrganization", MyOrganization, "My" },
+
+    // Reporting
+    { "CredentialUserRegistrationDetails", CredentialUserRegistrationDetails, "Reporting" },
+    { "MailboxUsageDetail", MailboxUsageDetail, "Reporting" },
+    { "Office365ActivationsUserDetail", Office365ActivationsUserDetail, "Reporting" },
+    { "Office365ActiveUserDetails", Office365ActiveUserDetails, "Reporting" },
+    { "Office365ServicesUserCounts", Office365ServicesUserCounts, "Reporting" },
+    { "OneDriveUsageAccountDetail", OneDriveUsageAccountDetail, "Reporting" },
+    { "SharePointSiteUsageDetail", SharePointSiteUsageDetail, "Reporting" },
+    { "TeamsUserActivityUserDetail", TeamsUserActivityUserDetail, "Reporting" },
+    { "YammerActivityUserDetail", YammerActivityUserDetail, "Reporting" }
 });
 
 GetActionForEntity = (entity as text) =>
@@ -609,89 +620,6 @@ SecureScoreControlProfiles = (tenants as list, batchSize as number, isCount as l
 [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
 shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
 
-GetAzureAdNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
-    let
-        entities = #table(
-            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
-            { "Conditional Access Policies", "ConditionalAccessPolicies", View("ConditionalAccessPolicies", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Contracts", "Contracts", View("Contracts", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Credential User Registration Details", "CredentialUserRegistrationDetails", View("CredentialUserRegistrationDetails", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Devices", "Devices", View("Devices", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Domains", "Domains", View("Domains", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Identity Security Defaults Enforcement Policy", "IdentitySecurityDefaultsEnforcementPolicy", View("IdentitySecurityDefaultsEnforcementPolicy", metadata, tenants, batchSize), "Table", "Table", true },
-            { "License Details", "LicenseDetails", View("LicenseDetails", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Sign Ins", "SignIns", View("SignIns", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Subscribed SKUs", "SubscribedSkus", View("SubscribedSkus", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Users", "Users", View("Users", metadata, tenants, batchSize), "Table", "Table", true }}),
-
-        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
-    in 
-        navTable;
-
-GetEndpointManagerNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
-    let
-        entities = #table(
-            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
-            { "Detected Apps", "DetectedApps", View("DetectedApps", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Detected Malware State", "DetectedMalwareState", View("DetectedMalwareState", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Device Compliance Policies", "DeviceCompliancePolicies", View("DeviceCompliancePolicies", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Device Compliance Policy States", "DeviceCompliancePolicyStates", View("DeviceCompliancePolicyStates", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Device Configuration Profiles", "DeviceConfigurationProfiles", View("DeviceConfigurationProfiles", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Device Configuration States", "DeviceConfigurationStates", View("DeviceConfigurationStates", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Managed Devices", "ManagedDevices", View("ManagedDevices", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Remote Action Audits", "RemoteActionAudits", View("RemoteActionAudits", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Security Baseline States", "SecurityBaselineStates", View("SecurityBaselineStates", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Subscription State", "SubscriptionState", View("SubscriptionState", metadata, tenants, batchSize), "Table", "Table", true },
-            { "User Experience Analytics Device Performance", "UserExperienceAnalyticsDevicePerformance", View("UserExperienceAnalyticsDevicePerformance", metadata, tenants, batchSize), "Table", "Table", true },
-            { "User Experience Analytics Device Startup Process Performance", "UserExperienceAnalyticsDeviceStartupProcessPerformance", View("UserExperienceAnalyticsDeviceStartupProcessPerformance", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Windows Protection State", "WindowsProtectionState", View("WindowsProtectionState", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Windows Update for Business Configurations", "WindowsUpdateForBusinessConfigurations", View("WindowsUpdateForBusinessConfigurations", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Windows Update for Business Configuration States", "WindowsUpdateForBusinessConfigurationStates", View("WindowsUpdateForBusinessConfigurationStates", metadata, tenants, batchSize), "Table", "Table", true }}),
-
-        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
-    in 
-        navTable;
-
-GetIntelligentSecurityNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
-    let
-        entities = #table(
-            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
-            { "Alerts", "Alerts", View("Alerts", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Secure Score", "SecureScore", View("SecureScore", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Secure Score Control Profiles", "SecureScoreControlProfiles", View("SecureScoreControlProfiles", metadata, tenants, batchSize), "Table", "Table", true }}),
-
-        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
-    in 
-        navTable;
-
-GetMyNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
-    let
-        entities = #table(
-            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
-            { "My Contracts", "MyContracts", View("MyContracts", metadata, tenants, batchSize), "Table", "Table", true },
-            { "My Organization", "MyOrganization", View("MyOrganization", metadata, tenants, batchSize), "Table", "Table", true }}),
-
-        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
-    in 
-        navTable;
-
-GetReportingNavigationTable = (metadata as table, tenants as list, batchSize as number) as table => 
-    let
-        entities = #table(
-            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" }, {
-            { "Mailbox Usage Detail", "MailboxUsageDetail", View("MailboxUsageDetail", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Office 365 Activations User Detail", "Office365ActivationsUserDetail", View("Office365ActivationsUserDetail", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Office 365 Active User Details", "Office365ActiveUserDetails", View("Office365ActiveUserDetails", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Office 365 Services User Counts", "Office365ServicesUserCounts", View("Office365ServicesUserCounts", metadata, tenants, batchSize), "Table", "Table", true },
-            { "OneDrive Usage Account Detail", "OneDriveUsageAccountDetail", View("OneDriveUsageAccountDetail", metadata, tenants, batchSize), "Table", "Table", true },
-            { "SharePoint Site Usage Detail", "SharePointSiteUsageDetail", View("SharePointSiteUsageDetail", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Teams User Activity User Detail", "TeamsUserActivityUserDetail", View("TeamsUserActivityUserDetail", metadata, tenants, batchSize), "Table", "Table", true },
-            { "Yammer Activity User Detail", "YammerActivityUserDetail", View("YammerActivityUserDetail", metadata, tenants, batchSize), "Table", "Table", true }}),
-
-        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
-    in 
-        navTable;
-
 NavigationTable = (friendlyName as text, optional tenants as list, optional batchSize as number) as table =>
     let
         GetMetadata = (version as text) =>
@@ -701,6 +629,20 @@ NavigationTable = (friendlyName as text, optional tenants as list, optional batc
                 metadata = Xml.Tables(buffered){0}[DataServices]{0}[#"http://docs.oasis-open.org/odata/ns/edm"]{0}[Schema]
             in 
                 metadata,
+
+        GetNestedNavigationTable = (input as table) as table =>
+            let
+                // Add data as a calculated column
+                withData = Table.AddColumn(input, "Data", each View([Name], metadata, listOfTenants), type table),
+                // Add the item name and kind as fixed text values
+                withItemKind = Table.AddColumn(withData, "ItemKind", each "Table", type text),
+                withItemName = Table.AddColumn(withItemKind, "ItemName", each "Table", type text),
+                // Indicate that the node should not be expandable
+                withIsLeaf = Table.AddColumn(withItemName, "IsLeaf", each true, type logical),
+                // Generate the nested navigation table
+                navTable = Table.ToNavigationTable(withIsLeaf, {"Name"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+            in 
+                navTable,
 
         listOfTenants = if(tenants <> null and not List.IsEmpty(tenants)) then 
                 tenants
@@ -714,15 +656,19 @@ NavigationTable = (friendlyName as text, optional tenants as list, optional batc
 
         sizeOfBatchRequests = if(batchSize <> null) then batchSize else DEFAULT_BATCH_SIZE,
 
-        entities = #table(
-            { "Name", "Key", "Data", "ItemKind", "ItemName", "IsLeaf" },  {
-            { Extension.LoadString("AzureAd"), "AzureAd", GetAzureAdNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "AzureAd", false },
-            { Extension.LoadString("EndpointManager"), "EndpointManager", GetEndpointManagerNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "EndpointManager", false},
-            { Extension.LoadString("IntelligentSecurity"), "IntelligentSecurity", GetIntelligentSecurityNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "IntelligentSecurity", false },
-            { Extension.LoadString("My"), "My", GetMyNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "My", false},
-            { Extension.LoadString("Reporting"), "Reporting", GetReportingNavigationTable(metadata, listOfTenants, sizeOfBatchRequests), "Folder", "Reporting", false }}),
-
-        navTable = Table.ToNavigationTable(entities, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+        // Group the items in the entity table by workload because those will be the folders in our navigation table
+        grouped = Table.Group(EntityTable, {"Workload"}, {{"Nested", each _, type table [Name=text, Action=text, Workload=text]}}),
+        // Rename the workload column to entity because the data will be used to build the folder structure of the navigation table
+        renamed = Table.RenameColumns(grouped, {{"Workload", "Entity"}}),
+        // Add data as a calculated column
+        withData = Table.AddColumn(renamed, "Data", each GetNestedNavigationTable([Nested]), type table),
+        // Add the item name and kind as fixed text values
+        withItemKind = Table.AddColumn(withData, "ItemKind", each "Folder", type text),
+        withItemName = Table.AddColumn(withItemKind, "ItemName", each "Folder", type text),
+         // Indicate that the node should be expandable
+        withIsLeaf = Table.AddColumn(withItemName, "IsLeaf", each false, type logical),
+        // Generate the navigation table
+        navTable = Table.ToNavigationTable(withIsLeaf, {"Name"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in
         navTable;
 

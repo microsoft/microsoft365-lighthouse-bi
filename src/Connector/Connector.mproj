@@ -20,6 +20,7 @@
     <MaxRows>1000</MaxRows>
     <ExtensionProject>Yes</ExtensionProject>
     <Name>Connector</Name>
+    <ConnectorName>Microsoft365Lighthouse</ConnectorName>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>false</DebugSymbols>
@@ -125,7 +126,7 @@
     <MakeDir Directories="$(OutputPath)" />
     <Copy SourceFiles="@(NonPQFiles)" DestinationFolder="$(IntermediateOutputPath)" />
     <Copy SourceFiles="@(PQFiles)" DestinationFiles="@(PQFiles->'$(IntermediateOutputPath)%(RecursiveDir)%(FileName).m')" />
-    <BuildExtension InputDirectory="$(IntermediateOutputPath)" OutputFile="$(OutputPath)\$(ProjectName).mez" />
+    <BuildExtension InputDirectory="$(IntermediateOutputPath)" OutputFile="$(OutputPath)\$(ConnectorName).mez" />
   </Target>
   <Target Name="ExtensionClean">
     <!-- Remove obj folder -->
