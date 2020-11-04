@@ -138,6 +138,9 @@
   <data name="IntelligentSecurity" xml:space="preserve">
     <value>Intelligent Security</value>
   </data>
+  <data name="Microsoft365Defender" xml:space="preserve">
+    <value>Microsoft 365 Defender</value>
+  </data>
   <data name="My" xml:space="preserve">
     <value>My</value>
   </data>

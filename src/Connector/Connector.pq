@@ -171,6 +171,19 @@ Domains = (tenants as list, batchSize as number, isCount as logical, schemaOnly 
     in
         result;
 
+Groups = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("group", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/groups", query, schema, metadata)
+    in
+        result;
+
+IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
+        result = Request.GetData("identitySecurityDefaultsEnforcementPolicy", isCount, schemaOnly, tenants, "v1.0", false, "/v1.0/policies/identitySecurityDefaultsEnforcementPolicy", removedTopParameter, schema, metadata)
+    in 
+        result;
+
 LicenseDetails = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = if(schemaOnly) then 
@@ -187,13 +200,6 @@ LicenseDetails = (tenants as list, batchSize as number, isCount as logical, sche
                 in 
                    batchResponse
     in
-        result;
-
-IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let
-        removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
-        result = Request.GetData("identitySecurityDefaultsEnforcementPolicy", isCount, schemaOnly, tenants, "v1.0", false, "/v1.0/policies/identitySecurityDefaultsEnforcementPolicy", removedTopParameter, schema, metadata)
-    in 
         result;
 
 MyContracts = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
@@ -327,6 +333,12 @@ ManagedDevices = (tenants as list, batchSize as number, isCount as logical, sche
     in
         result;
 
+MobileApps = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("mobileApp", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceAppManagement/mobileApps?$select=id,displayName,lastModifiedDateTime,roleScopeTagIds", query, schema, metadata)
+    in 
+        result;
+
 RemoteActionAudits = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("remoteActionAudit", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/remoteActionAudits", query, schema, metadata)
@@ -367,6 +379,12 @@ UserExperienceAnalyticsDeviceStartupProcessPerformance = (tenants as list, batch
     let 
         result = Request.GetData("userExperienceAnalyticsDeviceStartupProcessPerformance", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDeviceStartupProcessPerformance", query, schema, metadata)
     in
+        result;
+
+WindowsAutopilotDeviceIdentities = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let
+        result = Request.GetData("windowsAutopilotDeviceIdentity", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/windowsAutopilotDeviceIdentities", query, schema, metadata)
+    in 
         result;
 
 WindowsProtectionState = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
@@ -419,6 +437,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "AzureAd", "Contracts", Contracts },
     { "AzureAd", "Domains", Domains },
     { "AzureAd", "Devices", Devices },
+    { "AzureAd", "Groups", Groups },
     { "AzureAd", "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy },
     { "AzureAd", "LicenseDetails", LicenseDetails },
     { "AzureAd", "SignIns", SignIns },
@@ -442,14 +461,19 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "DeviceConfigurationStates", DeviceConfigurationStates },
     { "EndpointManager", "DeviceManagementAuditEvents", DeviceManagementAuditEvents },
     { "EndpointManager", "ManagedDevices", ManagedDevices },
+    { "EndpointManager", "MobileApps", MobileApps },
     { "EndpointManager", "RemoteActionAudits", RemoteActionAudits },
     { "EndpointManager", "SecurityBaselineStates", SecurityBaselineStates },
     { "EndpointManager", "SubscriptionState", SubscriptionState },
     { "EndpointManager", "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance },
     { "EndpointManager", "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
     { "EndpointManager", "WindowsProtectionState", WindowsProtectionState },
+    { "EndpointManager", "WindowsAutopilotDeviceIdentities", WindowsAutopilotDeviceIdentities },
     { "EndpointManager", "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
     { "EndpointManager", "WindowsUpdateForBusinessConfigurations", WindowsUpdateForBusinessConfigurations },
+
+    // Microsoft 365 Defender
+    { "Microsoft365Defender", "SecurityIncidents", SecurityIncidents },
 
     // My
     { "My", "MyContracts", MyContracts },
@@ -586,20 +610,33 @@ Request.Build = (tenants as list, relativeUrl as text, optional query as text) =
     in 
         expandedList;
 
-Request.BuildServiceCommunications = (tenants as list, relativeUrl as text, optional queryString as text) =>
+Request.BuildDefender = (tenants as list, relativeUrl as text, optional query as text) =>
+    let 
+        source = #table({"tenantId", "secMgmtInsightsScope"}, {{tenants, "https://api.security.microsoft.com/.default"}}),
+        expandedList = Table.ExpandListColumn(source, "tenantId"),
+        data = Table.AddColumn(expandedList, "secMgmtInsightsRequest", each 
+             if(query = null or query = "") then 
+                "https://api.security.microsoft.com/api/" & relativeUrl 
+            else if(Text.Contains(relativeUrl, "?")) then 
+                "https://api.security.microsoft.com/api/" & relativeUrl & "&" & Text.AfterDelimiter(query, "?")
+            else 
+                "https://api.security.microsoft.com/api/" & relativeUrl & query)
+    in 
+        data;
+
+Request.BuildServiceCommunications = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
         source = #table({"tenantId", "secMgmtInsightsScope"}, {{tenants, "https://manage.office.com/.default"}}),
         expandedList = Table.ExpandListColumn(source, "tenantId"),
         data = Table.AddColumn(expandedList, "secMgmtInsightsRequest", each 
-             if(queryString = null or queryString = "") then 
+             if(query = null or query = "") then 
                 "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl 
             else if(Text.Contains(relativeUrl, "?")) then 
-                "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl & "&" & Text.AfterDelimiter(queryString, "?")
+                "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl & "&" & Text.AfterDelimiter(query, "?")
             else 
-                "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl & queryString)
+                "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl & query)
     in 
         data;
-
 
 Request.GetData = (resource as text, isCount as logical, schemaOnly as logical, tenants as list, version as text, isPaged as logical, relativeUrl as text, optional query, optional schema as type, optional metadata, optional additionalSchema as text) =>
     let
@@ -637,6 +674,14 @@ SecureScore = (tenants as list, batchSize as number, isCount as logical, schemaO
         result;
 
 SecureScoreControlProfiles = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("secureScoreControlProfile", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
+    in
+        result;
+
+// Microsoft 365 Defender
+
+SecurityIncidents = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("secureScoreControlProfile", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
     in
