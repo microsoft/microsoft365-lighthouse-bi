@@ -315,6 +315,12 @@ DeviceConfigurationStates = (tenants as list, batchSize as number, isCount as lo
     in 
         result;
 
+DeviceManagementAuditEvents = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+    let 
+        result = Request.GetData("auditEvent", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/auditEvents", query, schema, metadata)
+    in
+        result;
+
 ManagedDevices = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
         result = Request.GetData("managedDevice", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/managedDevices", query, schema, metadata)
@@ -407,57 +413,58 @@ WindowsUpdateForBusinessConfigurations = (tenants as list, batchSize as number, 
 
 // Entities
 
-EntityTable = #table({"Name", "Action", "Workload"}, {
+EntityTable = #table({"Workload", "Name", "Action"}, {
     // Azure Active Directory 
-    { "ConditionalAccessPolicies", ConditionalAccessPolicies , "AzureAd"},
-    { "Contracts", Contracts, "AzureAd" },
-    { "Domains", Domains, "AzureAd" },
-    { "Devices", Devices, "AzureAd" },
-    { "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy, "AzureAd" },
-    { "LicenseDetails", LicenseDetails, "AzureAd" },
-    { "SignIns", SignIns, "AzureAd" },
-    { "SubscribedSkus", SubscribedSkus, "AzureAd" },
-    { "Users", Users, "AzureAd" },
+    { "AzureAd", "ConditionalAccessPolicies", ConditionalAccessPolicies},
+    { "AzureAd", "Contracts", Contracts },
+    { "AzureAd", "Domains", Domains },
+    { "AzureAd", "Devices", Devices },
+    { "AzureAd", "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy },
+    { "AzureAd", "LicenseDetails", LicenseDetails },
+    { "AzureAd", "SignIns", SignIns },
+    { "AzureAd", "SubscribedSkus", SubscribedSkus },
+    { "AzureAd", "Users", Users },
 
     // Identity Protection
-    { "RiskDetections", RiskDetections, "IdentityProtection" },
+    { "IdentityProtection", "RiskDetections", RiskDetections },
 
     // Intelligent Security Graph
-    { "Alerts", Alerts, "IntelligentSecurity" },
-    { "SecureScore", SecureScore, "IntelligentSecurity" },
-    { "SecureScoreControlProfiles", SecureScoreControlProfiles, "IntelligentSecurity" }, 
+    { "IntelligentSecurity", "Alerts", Alerts },
+    { "IntelligentSecurity", "SecureScore", SecureScore },
+    { "IntelligentSecurity", "SecureScoreControlProfiles", SecureScoreControlProfiles }, 
 
     // Microsoft Endpoint Manager
-    { "DetectedApps", DetectedApps, "EndpointManager" },
-    { "DetectedMalwareState", DetectedMalwareState, "EndpointManager" },
-    { "DeviceCompliancePolicies", DeviceCompliancePolicies, "EndpointManager" },
-    { "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates, "EndpointManager" },
-    { "DeviceConfigurationProfiles", DeviceConfigurationProfiles, "EndpointManager" },
-    { "DeviceConfigurationStates", DeviceConfigurationStates, "EndpointManager" },
-    { "ManagedDevices", ManagedDevices, "EndpointManager" },
-    { "RemoteActionAudits", RemoteActionAudits, "EndpointManager" },
-    { "SecurityBaselineStates", SecurityBaselineStates, "EndpointManager" },
-    { "SubscriptionState", SubscriptionState, "EndpointManager" },
-    { "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance, "EndpointManager" },
-    { "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance, "EndpointManager" },
-    { "WindowsProtectionState", WindowsProtectionState, "EndpointManager" },
-    { "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates, "EndpointManager" },
-    { "WindowsUpdateForBusinessConfigurations", WindowsUpdateForBusinessConfigurations, "EndpointManager" },
+    { "EndpointManager", "DetectedApps", DetectedApps },
+    { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
+    { "EndpointManager", "DeviceCompliancePolicies", DeviceCompliancePolicies },
+    { "EndpointManager", "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates },
+    { "EndpointManager", "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
+    { "EndpointManager", "DeviceConfigurationStates", DeviceConfigurationStates },
+    { "EndpointManager", "DeviceManagementAuditEvents", DeviceManagementAuditEvents },
+    { "EndpointManager", "ManagedDevices", ManagedDevices },
+    { "EndpointManager", "RemoteActionAudits", RemoteActionAudits },
+    { "EndpointManager", "SecurityBaselineStates", SecurityBaselineStates },
+    { "EndpointManager", "SubscriptionState", SubscriptionState },
+    { "EndpointManager", "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance },
+    { "EndpointManager", "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
+    { "EndpointManager", "WindowsProtectionState", WindowsProtectionState },
+    { "EndpointManager", "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
+    { "EndpointManager", "WindowsUpdateForBusinessConfigurations", WindowsUpdateForBusinessConfigurations },
 
     // My
-    { "MyContracts", MyContracts, "My" },
-    { "MyOrganization", MyOrganization, "My" },
+    { "My", "MyContracts", MyContracts },
+    { "My", "MyOrganization", MyOrganization },
 
     // Reporting
-    { "CredentialUserRegistrationDetails", CredentialUserRegistrationDetails, "Reporting" },
-    { "MailboxUsageDetail", MailboxUsageDetail, "Reporting" },
-    { "Office365ActivationsUserDetail", Office365ActivationsUserDetail, "Reporting" },
-    { "Office365ActiveUserDetails", Office365ActiveUserDetails, "Reporting" },
-    { "Office365ServicesUserCounts", Office365ServicesUserCounts, "Reporting" },
-    { "OneDriveUsageAccountDetail", OneDriveUsageAccountDetail, "Reporting" },
-    { "SharePointSiteUsageDetail", SharePointSiteUsageDetail, "Reporting" },
-    { "TeamsUserActivityUserDetail", TeamsUserActivityUserDetail, "Reporting" },
-    { "YammerActivityUserDetail", YammerActivityUserDetail, "Reporting" }
+    { "Reporting", "CredentialUserRegistrationDetails", CredentialUserRegistrationDetails },
+    { "Reporting", "MailboxUsageDetail", MailboxUsageDetail },
+    { "Reporting", "Office365ActivationsUserDetail", Office365ActivationsUserDetail },
+    { "Reporting", "Office365ActiveUserDetails", Office365ActiveUserDetails },
+    { "Reporting", "Office365ServicesUserCounts", Office365ServicesUserCounts },
+    { "Reporting", "OneDriveUsageAccountDetail", OneDriveUsageAccountDetail },
+    { "Reporting", "SharePointSiteUsageDetail", SharePointSiteUsageDetail },
+    { "Reporting", "TeamsUserActivityUserDetail", TeamsUserActivityUserDetail },
+    { "Reporting", "YammerActivityUserDetail", YammerActivityUserDetail }
 });
 
 GetActionForEntity = (entity as text) =>
