@@ -462,7 +462,7 @@ EntityTable = #table({"Name", "Action", "Workload"}, {
 
 GetActionForEntity = (entity as text) =>
     try 
-        EntityTable{[Entity = entity]}[Action]
+        EntityTable{[Name = entity]}[Action]
      otherwise
          let
              message = Text.Format("Could not find entity: '#{0}'", {entity})
@@ -632,8 +632,10 @@ NavigationTable = (friendlyName as text, optional tenants as list, optional batc
 
         GetNestedNavigationTable = (input as table) as table =>
             let
+                // Select the only column needed from the input for this function
+                selected = Table.SelectColumns(input, {"Name"}),
                 // Add data as a calculated column
-                withData = Table.AddColumn(input, "Data", each View([Name], metadata, listOfTenants), type table),
+                withData = Table.AddColumn(selected, "Data", each View([Name], metadata, listOfTenants, sizeOfBatchRequests), type table),
                 // Add the item name and kind as fixed text values
                 withItemKind = Table.AddColumn(withData, "ItemKind", each "Table", type text),
                 withItemName = Table.AddColumn(withItemKind, "ItemName", each "Table", type text),
@@ -657,18 +659,22 @@ NavigationTable = (friendlyName as text, optional tenants as list, optional batc
         sizeOfBatchRequests = if(batchSize <> null) then batchSize else DEFAULT_BATCH_SIZE,
 
         // Group the items in the entity table by workload because those will be the folders in our navigation table
-        grouped = Table.Group(EntityTable, {"Workload"}, {{"Nested", each _, type table [Name=text, Action=text, Workload=text]}}),
-        // Rename the workload column to entity because the data will be used to build the folder structure of the navigation table
-        renamed = Table.RenameColumns(grouped, {{"Workload", "Entity"}}),
-        // Add data as a calculated column
-        withData = Table.AddColumn(renamed, "Data", each GetNestedNavigationTable([Nested]), type table),
-        // Add the item name and kind as fixed text values
-        withItemKind = Table.AddColumn(withData, "ItemKind", each "Folder", type text),
-        withItemName = Table.AddColumn(withItemKind, "ItemName", each "Folder", type text),
-         // Indicate that the node should be expandable
+        grouped = Table.Group(EntityTable, {"Workload"}, {{"Nested", each _}}),
+        // Convert the list of workloads to a table
+        asTable = Table.FromList(grouped[Workload], Splitter.SplitByNothing()),
+        // Rename the default column to key
+        rename = Table.RenameColumns(asTable, {{"Column1", "Key"}}),
+        // Add the name column as a calculated column 
+        withName = Table.AddColumn(rename, "Name", each Extension.LoadString([Key])),
+        // Add the data column as a calculated column
+        withData = Table.AddColumn(withName, "Data", each GetNestedNavigationTable(grouped{[Workload=[Key]]}[Nested]), type table),
+        // Add the item kind as a fixed text value
+        withItemKind = Table.AddColumn(withData, "ItemKind", each "Feed", type text),
+        withItemName = Table.AddColumn(withItemKind, "ItemName", each "Feed", type text),
+        // Indicate that the node should not be expandable
         withIsLeaf = Table.AddColumn(withItemName, "IsLeaf", each false, type logical),
         // Generate the navigation table
-        navTable = Table.ToNavigationTable(withIsLeaf, {"Name"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
+        navTable = Table.ToNavigationTable(withIsLeaf, {"Key"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
     in
         navTable;
 
