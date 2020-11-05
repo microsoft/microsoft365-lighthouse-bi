@@ -191,7 +191,7 @@ LicenseDetails = (tenants as list, batchSize as number, isCount as logical, sche
             else
                 let
                     requests = Request.Build(tenants, "/v1.0/users?$select=id"),
-                    response = Rest.Feed(requests, true),
+                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/users/" & [userId] & "/licenseDetails"),
@@ -250,7 +250,7 @@ DetectedApps = (tenants as list, batchSize as number, isCount as logical, schema
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
-                    response = Rest.Feed(requests, true),
+                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/detectedApps"),
@@ -268,7 +268,7 @@ DetectedMalwareState = (tenants as list, batchSize as number, isCount as logical
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
-                    response = Rest.Feed(requests, true),
+                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
@@ -292,7 +292,7 @@ DeviceCompliancePolicyStates = (tenants as list, batchSize as number, isCount as
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
-                    response = Rest.Feed(requests, true),
+                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/deviceCompliancePolicyStates"),
@@ -316,7 +316,7 @@ DeviceConfigurationStates = (tenants as list, batchSize as number, isCount as lo
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
-                    response = Rest.Feed(requests, true),
+                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/deviceConfigurationStates"),
@@ -364,7 +364,7 @@ SecurityBaselineStates = (tenants as list, batchSize as number, isCount as logic
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
-                    response = Rest.Feed(requests, true),
+                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/securityBaselineStates"),
@@ -406,7 +406,7 @@ WindowsProtectionState = (tenants as list, batchSize as number, isCount as logic
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
-                    response = Rest.Feed(requests, true),
+                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/"),
@@ -424,7 +424,7 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, batchSize as num
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)&$select=id"),
-                    response = Rest.Feed(requests, true),
+                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "policyId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/deviceConfigurations/" & [policyId] & "/microsoft.graph.windowsUpdateForBusinessConfiguration/deviceUpdateStates"),
@@ -687,7 +687,7 @@ InformationProtectionLabels = (tenants as list, batchSize as number, isCount as 
             else
                 let
                     requests = Request.Build(tenants, "/beta/users?$select=id"),
-                    response = Rest.Feed(requests, true),
+                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/users/" & [userId] & "/informationProtection/policy/labels"),
