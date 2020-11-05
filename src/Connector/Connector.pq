@@ -971,8 +971,21 @@ Rest.Feed = (requests as table, isPaged as logical, optional schema as type) =>
                     else
                         Rest.GetContents(input[secMgmtInsightsRequest], GetAccessToken(input[tenantId], input[secMgmtInsightsScope]), isPaged and requestContainsTopQuery, schema),
 
-                // TODO - If the record has an error, then it should return an error and not null
-                response = if(data[HasError] or Table.IsEmpty(data[Value])) then 
+                response = if(data[HasError]) then 
+                    let
+                        // TODO -- When the schema variable is null the following error will be thrown 
+                        // Expression.Error: We cannot convert the value null to type Type.
+                        fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
+                        asTable = Table.FromList(fields, Splitter.SplitByNothing()),
+
+                        unpivot = Table.Unpivot(asTable, {"Column1"}, "Attribute", "Value"),
+                        pivot = Table.Pivot(unpivot, List.Distinct(unpivot[Value]), "Value", "Attribute", each error data[Error]),
+
+                        replace = Table.ReplaceErrorValues(pivot, {{"tenantId", input[tenantId]}}), 
+                        value = Table.ToRecords(replace)
+                    in 
+                        value
+                else if (Table.IsEmpty(data[Value])) then 
                         let
                             listOfFields = List.RemoveMatchingItems(Record.FieldNames(input), { "secMgmtInsightsRequest" }),
                             tableFromRecord = Table.FromRecords({input}, listOfFields),
@@ -1004,36 +1017,43 @@ Rest.Feed = (requests as table, isPaged as logical, optional schema as type) =>
 Rest.GetContents = (url as text, token as text, isPaged as logical, optional schema as type) =>
     let 
         response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token),
-        body = Json.Document(response), 
-        nextLink = Record.FieldOrDefault(body, "@odata.nextLink"),
+        document = Json.Document(response), 
 
-        data = if (isPaged and schema = null) then 
-                Diagnostics.LogFailure(
-                    "Error converting response body. Are the records uniform?",
-                    () => Table.FromRecords(body[value]))
-            else if(isPaged and schema <> null) then 
-                let
-                    asTable = Table.FromList(body[value], Splitter.SplitByNothing(), {"Column1"}),
-                    fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
-                    expanded = Table.ExpandRecordColumn(asTable, "Column1", fields),
-                    // Remove the tenantId field if exists beacuse it is not found in each response 
-                    // and other functions add base data and this value exist in that set.
-                    removed = Table.RemoveColumns(expanded, {"tenantId"}, MissingField.Ignore)
-                in
-                    removed
+        result =  if(Record.HasFields(document, {"error"})) then 
+                error Error.Record(document[error][code], document[error][message])
             else
                 let
-                    abstract = if(Type.Is(Value.Type(body), List.Type)) then body else {body}, 
-                    contents = Table.FromList(abstract, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-                  
-                    firstRow = contents{0}?,
-                    listOfColumns =  List.Union(List.Transform(abstract, each Record.FieldNames(_))),
+                    nextLink = Record.FieldOrDefault(document, "@odata.nextLink"),
 
-                    value = if(firstRow = null) then Table.FromRows({}) else Table.ExpandRecordColumn(contents, "Column1", listOfColumns)
-                in
-                    value
-    in 
-        data meta [NextLink = nextLink];
+                    data = if (isPaged and schema = null) then 
+                            Diagnostics.LogFailure(
+                                "Error converting response body. Are the records uniform?",
+                                () => Table.FromRecords(document[value]))
+                        else if(isPaged and schema <> null) then 
+                            let
+                                asTable = Table.FromList(document[value], Splitter.SplitByNothing(), {"Column1"}),
+                                fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
+                                expanded = Table.ExpandRecordColumn(asTable, "Column1", fields),
+                                // Remove the tenantId field if exists beacuse it is not found in each response 
+                                // and other functions add base data and this value exist in that set.
+                                removed = Table.RemoveColumns(expanded, {"tenantId"}, MissingField.Ignore)
+                            in
+                                removed
+                        else
+                            let
+                                abstract = if(Type.Is(Value.Type(document), List.Type)) then document else {document}, 
+                                contents = Table.FromList(abstract, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+                  
+                                firstRow = contents{0}?,
+                                listOfColumns =  List.Union(List.Transform(abstract, each Record.FieldNames(_))),
+
+                                value = if(firstRow = null) then Table.FromRows({}) else Table.ExpandRecordColumn(contents, "Column1", listOfColumns)
+                            in
+                                value
+                in 
+                    data meta [NextLink = nextLink]
+        in
+            result;
 
 Rest.GetPages = (url as text, token as text, optional schema as type) => Table.GenerateByPage((previous) => 
     let
@@ -1061,14 +1081,7 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
         options = if(content <> null) then Record.AddField(baseOptions, "Content", Text.ToBinary(content)) else baseOptions, 
 
         response = Web.Contents(url, Record.AddField(options, "Headers", headers)),
-        buffered = Binary.Buffer(response),
-
-        // TODO - Expression.Error: We cannot convert a value of type Binary to type Record.
-
-        result = if(Record.HasFields(buffered, {"error"})) then 
-                error Error.Record(buffered[error][code], buffered[error][message])
-            else 
-                buffered
+        buffered = Binary.Buffer(response)
     in 
         buffered;
 
