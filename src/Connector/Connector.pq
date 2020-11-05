@@ -471,7 +471,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     // Microsoft Endpoint Manager
     { "EndpointManager", "AntivirusIntents", AntivirusIntents },
     { "EndpointManager", "DetectedApps", DetectedApps },
-    // TODO - Add me back! { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
+    { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
     { "EndpointManager", "DeviceCompliancePolicies", DeviceCompliancePolicies },
     { "EndpointManager", "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates },
     { "EndpointManager", "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
