@@ -261,15 +261,12 @@ DetectedApps = (tenants as list, batchSize as number, isCount as logical, schema
     in 
         result;
 
-[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
-//DetectedMalwareState = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-shared Microsoft365Lighthouse.DetectedMalwareState = () =>
+DetectedMalwareState = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        tenants = Rest.GetPages(graph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken())[customerId],
-//          result = if(schemaOnly) then 
-//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId = text")
-//             else
-//                 let
+         result = if(schemaOnly) then 
+                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId = text")
+            else
+                let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
@@ -277,10 +274,10 @@ shared Microsoft365Lighthouse.DetectedMalwareState = () =>
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
                     
                     batchResponse = Request.Batch(batchRequests, 5, true)
-//                 in 
-//                    batchResponse
+                in 
+                   batchResponse
     in 
-        batchResponse;
+        result;
 
 DeviceCompliancePolicies = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
@@ -620,12 +617,25 @@ Request.Batch = (input as table, batchSize as number, isBetaRequest as logical) 
                         
         filteredRows = Table.SelectRows(expandedValue, each [value] <> null and [value] <> ""),
         listOfColumns =  List.Union(List.Transform(filteredRows[value], each Record.FieldNames(_))),
-        expanded = Table.ExpandRecordColumn(expandedValue, "value", listOfColumns)
+        expanded = Table.ExpandRecordColumn(expandedValue, "value", listOfColumns),
 
-        // TODO - Need to add the rows with errors back and ensure the error is present in each column
+        result = if(Table.IsEmpty(withErrors)) then expanded else 
+            let 
+                asTable = Table.FromList(listOfColumns, Splitter.SplitByNothing()),
+                unpivot = Table.Unpivot(asTable, {"Column1"}, "Attribute", "Value"),
 
-    in 
-        expanded;
+                records = Table.ToRecords(withErrors), 
+                errorValue = Record.Field(records{0}, Table.ColumnNames(withErrors){1}),
+        
+                pivot = Table.Pivot(unpivot, List.Distinct(unpivot[Value]), "Value", "Attribute", each error errorValue),
+                withResponseColumns = Table.AddColumn(withErrors, "Column1", each pivot),
+                withExpandedColumns =  Table.ExpandTableColumn(withResponseColumns, "Column1", listOfColumns),
+
+                included = Table.InsertRows(expanded, 0, Table.ToRecords(withExpandedColumns))
+            in 
+                included
+        in
+            result;
 
 Request.Build = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
@@ -748,8 +758,8 @@ SecurityIncidents = (tenants as list, batchSize as number, isCount as logical, s
 
 // Navigation 
         
-// [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
-// shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
+[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
+shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
 
 NavigationTable = (friendlyName as text, optional tenants as list, optional batchSize as number) as table =>
     let
