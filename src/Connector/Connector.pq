@@ -553,25 +553,31 @@ Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
 Request.Batch = (input as table, batchSize as number, isBetaRequest as logical) =>
     let 
-        GetData = (tenantId as text, input as table) as table =>
+        GetData = (tenantId as text, input as table) =>
             let
-                data = Table.SelectColumns(input, {"id", "method", "secMgmtInsightsRequest"}),
-                rename = Table.RenameColumns(data, {"secMgmtInsightsRequest", "url"}),
+                result = if (List.IsEmpty(List.RemoveNulls(input[secMgmtInsightsRequest]))) then 
+                        Table.FromRecords({[id = 1, status = 200, body = null]})
+                    else 
+                        let 
+                            data = Table.SelectColumns(input, {"id", "method", "secMgmtInsightsRequest"}),
+                            rename = Table.RenameColumns(data, {"secMgmtInsightsRequest", "url"}),
 
-                contents = "{""requests"":" & Text.FromBinary(Json.FromValue(rename)) & "}",
+                            contents = "{""requests"":" & Text.FromBinary(Json.FromValue(rename)) & "}",
 
-                token = GetAccessToken(tenantId),
-                urlToUse = if(isBetaRequest) then graph_endpoint & "/beta/$batch" else graph_endpoint & "/v1.0/$batch",
+                            token = GetAccessToken(tenantId),
+                            urlToUse = if(isBetaRequest) then graph_endpoint & "/beta/$batch" else graph_endpoint & "/v1.0/$batch",
 
-                response = Rest.Request(urlToUse, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, Text.Remove(contents, "\")),
-                document = Json.Document(response),
+                            response = Rest.Request(urlToUse, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, Text.Remove(contents, "\")),
+                            document = Json.Document(response),
 
-                expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
-                expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "body"}),
+                            expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
+                            expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "body"}),
 
-                changedType = Table.TransformColumnTypes(expandedRecord, {{"id", type number}})
-            in 
-                changedType,
+                            changedType = Table.TransformColumnTypes(expandedRecord, {{"id", type number}})
+                        in 
+                            changedType
+            in
+                result,
 
         Process = (tenantId as text, requests as table) => Table.GenerateByPage((previous) =>
             let
@@ -585,7 +591,7 @@ Request.Batch = (input as table, batchSize as number, isBetaRequest as logical) 
                     in
                         if (Table.IsEmpty(newValue)) then null else newValue,
 
-                output = if(data = null or List.IsEmpty(List.RemoveNulls(data[secMgmtInsightsRequest]))) then null else 
+                output = if(data = null) then null else 
                     let 
                         addIndexColumn = Table.AddIndexColumn(data, "id", index + 1),
                         addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
@@ -598,40 +604,26 @@ Request.Batch = (input as table, batchSize as number, isBetaRequest as logical) 
             in
                 output meta [Index = index + batchSize]),
 
-        /*
-         * TODO 
-         * 
-         * The first query that runs for most batched requests is for a base identifier (e.g., deviceId). Depending on the 
-         * circumstance that request that can return an error, which is handled correctly by other code in the connect. However, 
-         * when we attempt to process that entry here the error will surfaced and prevent further execution of this function. 
-         * That is not the desired outcome because only the row with an error should be skipped while that information is presisted.
-         * Right now we are removing errors which means the result table will not contain information that the consumer needs to 
-         * ensure each request is being invoked as expceted.
-         *
-         * Purposed Solution #1
-         *
-         * Remove the rows with errors before processing. However, prior to returning the output add those rows back.
-         */
-
         withErrors = Table.SelectRowsWithErrors(input),
         withoutErrors = Table.RemoveRowsWithErrors(input), 
 
         groupedRows = Table.Group(withoutErrors, {"tenantId"}, {{"requests", each _}}),
         runRequest = Table.AddColumn(groupedRows, "responses", each Process([tenantId], [requests])),
 
-        //removeErrors = Table.RemoveRowsWithErrors(runRequest, {"responses"}),
         responses = Table.Combine(runRequest[responses]),
 
-        // Remove the columns that were used for processing the request. This is done to prevent
-        // any issue with duplicate columns names when expanding the response from the API.
-        removed = Table.RemoveColumns(responses, {"id", "method", "secMgmtInsightsRequest", "status", "url"}, MissingField.Ignore),
+        // Remove the columns that were used for processing to avoid any issues with expanding the data returne from the request
+        removed = Table.RemoveColumns(responses, {"id", "method", "status", "url"}, MissingField.Ignore),
 
         expandedBody = Table.ExpandRecordColumn(removed, "body", {"value"}),
         expandedValue = Table.ExpandListColumn(expandedBody, "value"),
                         
         filteredRows = Table.SelectRows(expandedValue, each [value] <> null and [value] <> ""),
         listOfColumns =  List.Union(List.Transform(filteredRows[value], each Record.FieldNames(_))),
-        expanded = Table.ExpandRecordColumn(filteredRows, "value", listOfColumns)
+        expanded = Table.ExpandRecordColumn(expandedValue, "value", listOfColumns)
+
+        // TODO - Need to add the rows with errors back and ensure the error is present in each column
+
     in 
         expanded;
 
