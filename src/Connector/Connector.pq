@@ -8,7 +8,7 @@ graph_endpoint = "https://graph.microsoft.com";
 logout_uri = "https://login.microsoftonline.com/logout.srf";
 redirect_uri = "https://oauth.powerbi.com/views/oauthredirect.html";
 token_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/token";
-version = "0.0.1-alpha";
+version = "0.0.1";
 
 // Default variables
 
@@ -261,23 +261,26 @@ DetectedApps = (tenants as list, batchSize as number, isCount as logical, schema
     in 
         result;
 
-DetectedMalwareState = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
+//DetectedMalwareState = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+shared Microsoft365Lighthouse.DetectedMalwareState = () =>
     let 
-         result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId = text")
-            else
-                let
+        tenants = Rest.GetPages(graph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken())[customerId],
+//          result = if(schemaOnly) then 
+//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId = text")
+//             else
+//                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
                     
-                    batchResponse = Request.Batch(batchRequests, batchSize, true)
-                in 
-                   batchResponse
+                    batchResponse = Request.Batch(batchRequests, 5, true)
+//                 in 
+//                    batchResponse
     in 
-        result;
+        batchResponse;
 
 DeviceCompliancePolicies = (tenants as list, batchSize as number, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
@@ -471,7 +474,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     // Microsoft Endpoint Manager
     { "EndpointManager", "AntivirusIntents", AntivirusIntents },
     { "EndpointManager", "DetectedApps", DetectedApps },
-    { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
+    // TODO - Add me back! { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
     { "EndpointManager", "DeviceCompliancePolicies", DeviceCompliancePolicies },
     { "EndpointManager", "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates },
     { "EndpointManager", "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
@@ -582,7 +585,7 @@ Request.Batch = (input as table, batchSize as number, isBetaRequest as logical) 
                     in
                         if (Table.IsEmpty(newValue)) then null else newValue,
 
-                output = if(data = null) then null else 
+                output = if(data = null or List.IsEmpty(List.RemoveNulls(data[secMgmtInsightsRequest]))) then null else 
                     let 
                         addIndexColumn = Table.AddIndexColumn(data, "id", index + 1),
                         addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
@@ -595,11 +598,29 @@ Request.Batch = (input as table, batchSize as number, isBetaRequest as logical) 
             in
                 output meta [Index = index + batchSize]),
 
-        groupedRows = Table.Group(input, {"tenantId"}, {{"requests", each _}}),
+        /*
+         * TODO 
+         * 
+         * The first query that runs for most batched requests is for a base identifier (e.g., deviceId). Depending on the 
+         * circumstance that request that can return an error, which is handled correctly by other code in the connect. However, 
+         * when we attempt to process that entry here the error will surfaced and prevent further execution of this function. 
+         * That is not the desired outcome because only the row with an error should be skipped while that information is presisted.
+         * Right now we are removing errors which means the result table will not contain information that the consumer needs to 
+         * ensure each request is being invoked as expceted.
+         *
+         * Purposed Solution #1
+         *
+         * Remove the rows with errors before processing. However, prior to returning the output add those rows back.
+         */
+
+        withErrors = Table.SelectRowsWithErrors(input),
+        withoutErrors = Table.RemoveRowsWithErrors(input), 
+
+        groupedRows = Table.Group(withoutErrors, {"tenantId"}, {{"requests", each _}}),
         runRequest = Table.AddColumn(groupedRows, "responses", each Process([tenantId], [requests])),
 
-        removeErrors = Table.RemoveRowsWithErrors(runRequest, {"responses"}),
-        responses = Table.Combine(removeErrors[responses]),
+        //removeErrors = Table.RemoveRowsWithErrors(runRequest, {"responses"}),
+        responses = Table.Combine(runRequest[responses]),
 
         // Remove the columns that were used for processing the request. This is done to prevent
         // any issue with duplicate columns names when expanding the response from the API.
@@ -690,6 +711,7 @@ InformationProtectionLabels = (tenants as list, batchSize as number, isCount as 
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
+                    // TODO - The query parameter needs to be add to the URL below. Without the query folding feature really is not working as it should.
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/users/" & [userId] & "/informationProtection/policy/labels"),
                     
                     batchResponse = Request.Batch(batchRequests, batchSize, true)
@@ -734,8 +756,8 @@ SecurityIncidents = (tenants as list, batchSize as number, isCount as logical, s
 
 // Navigation 
         
-[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
-shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
+// [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
+// shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
 
 NavigationTable = (friendlyName as text, optional tenants as list, optional batchSize as number) as table =>
     let
@@ -973,8 +995,6 @@ Rest.Feed = (requests as table, isPaged as logical, optional schema as type) =>
 
                 response = if(data[HasError]) then 
                     let
-                        // TODO -- When the schema variable is null the following error will be thrown 
-                        // Expression.Error: We cannot convert the value null to type Type.
                         fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
                         asTable = Table.FromList(fields, Splitter.SplitByNothing()),
 
@@ -1020,7 +1040,7 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
         document = Json.Document(response), 
 
         result =  if(Record.HasFields(document, {"error"})) then 
-                error Error.Record(document[error][code], document[error][message])
+                error Error.Record(document[error][code], document[error][message], document[error][innerError])
             else
                 let
                     nextLink = Record.FieldOrDefault(document, "@odata.nextLink"),
