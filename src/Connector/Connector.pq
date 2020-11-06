@@ -189,7 +189,12 @@ LicenseDetails = (tenants as list, isCount as logical, schemaOnly as logical, op
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/users/" & [userId] & "/licenseDetails"),
+                    newQuery = Request.GetBatchQueryString(query, {"tenantId", "userId"}),
+                    
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([userId] = null) then 
+                            null
+                        else 
+                            Request.AppendQuery("/users/" & [userId] & "/licenseDetails", newQuery)),
                     
                     batchResponse = Request.Batch(batchRequests, false, schema)
                 in 
@@ -248,7 +253,12 @@ DetectedApps = (tenants as list, isCount as logical, schemaOnly as logical, opti
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/detectedApps"),
+                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+                    
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+                            null
+                        else 
+                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/detectedApps", newQuery)),
                     
                     batchResponse = Request.Batch(batchRequests, true, schema)
                 in 
@@ -266,7 +276,12 @@ DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logic
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState"),
+                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+                    
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+                            null 
+                        else 
+                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState", newQuery)),
                     
                     batchResponse = Request.Batch(batchRequests, true, schema)
                 in 
@@ -290,7 +305,12 @@ DeviceCompliancePolicyStates = (tenants as list, isCount as logical, schemaOnly 
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/deviceCompliancePolicyStates"),
+                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+                    
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+                            null
+                        else
+                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/deviceCompliancePolicyStates", newQuery)),
                     
                     batchResponse = Request.Batch(batchRequests, true, schema)
                 in 
@@ -314,7 +334,12 @@ DeviceConfigurationStates = (tenants as list, isCount as logical, schemaOnly as 
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/deviceConfigurationStates"),
+                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+                            null
+                        else
+                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/deviceConfigurationStates", newQuery)),
                     
                     batchResponse = Request.Batch(batchRequests, true, schema)
                 in 
@@ -374,7 +399,12 @@ SecurityBaselineStates = (tenants as list, isCount as logical, schemaOnly as log
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/securityBaselineStates"),
+                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+                            null
+                        else 
+                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/securityBaselineStates", newQuery)),
                     
                     batchResponse = Request.Batch(batchRequests, true, schema)
                 in 
@@ -416,7 +446,12 @@ WindowsProtectionState = (tenants as list, isCount as logical, schemaOnly as log
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/"),
+                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+                            null
+                        else 
+                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/", newQuery)),
                     
                     batchResponse = Request.Batch(batchRequests, true, schema)
                 in 
@@ -434,7 +469,12 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, isCount as logic
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "policyId"}, MissingField.Ignore),
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/deviceManagement/deviceConfigurations/" & [policyId] & "/microsoft.graph.windowsUpdateForBusinessConfiguration/deviceUpdateStates"),
+                    newQuery = Request.GetBatchQueryString(query, {"policyId", "tenantId"}),
+
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([policyId] = null) then 
+                            null
+                        else 
+                            Request.AppendQuery("/deviceManagement/deviceConfigurations/" & [policyId] & "/microsoft.graph.windowsUpdateForBusinessConfiguration/deviceUpdateStates", newQuery)),
                     
                     batchResponse = Request.Batch(batchRequests,true, schema)
                 in 
@@ -652,6 +692,17 @@ Request.Batch = (input as table, isBetaRequest as logical, schema as type) =>
         in
             result;
 
+Request.AppendQuery = (url as text, optional query as text) =>
+    let 
+        result = if(query = null or query = "") then 
+            url
+        else if(Text.Contains(url, "?")) then 
+            url & "&" & Text.AfterDelimiter(query, "?")
+        else 
+            url & "?" & query
+    in 
+        result;
+
 Request.Build = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
         request = if(query = null or query = "") then 
@@ -694,6 +745,24 @@ Request.BuildServiceCommunications = (tenants as list, relativeUrl as text, opti
     in 
         data;
 
+Request.GetBatchQueryString = (query as text, itemsToRemove as list) =>
+    let
+        parts = Uri.Parts(graph_endpoint & Request.AppendQuery("/doesNotMatter", query)),
+
+        result = if(Record.HasFields(parts[Query], {"$select"})) then
+                let
+                    current = Text.Combine(List.RemoveItems(Text.Split(parts[Query][#"$select"], ","), itemsToRemove), ","),
+                    removed = Record.RemoveFields(parts[Query], "$select", MissingField.Ignore),
+                    added = Record.AddField(removed, "$select", current),
+
+                    result = Uri.BuildQueryString(added)
+                in 
+                    result
+            else
+                query
+        in 
+            result;
+
 Request.GetData = (resource as text, isCount as logical, schemaOnly as logical, tenants as list, version as text, isPaged as logical, relativeUrl as text, optional query, optional schema as type, optional metadata, optional additionalSchema as text) =>
     let
         result = if(schemaOnly) then 
@@ -728,8 +797,13 @@ InformationProtectionLabels = (tenants as list, isCount as logical, schemaOnly a
                     response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
+                    newQuery = Request.GetBatchQueryString(query, {"tenantId", "userId"}),
+
                     // TODO - The query parameter needs to be add to the URL below. Without the query folding feature really is not working as it should.
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each "/users/" & [userId] & "/informationProtection/policy/labels"),
+                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([userId] = null) then 
+                            null
+                        else
+                            Request.AppendQuery("/users/" & [userId] & "/informationProtection/policy/labels", newQuery)),
                     
                     batchResponse = Request.Batch(batchRequests, true, schema)
                 in 
