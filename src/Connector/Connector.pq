@@ -799,7 +799,6 @@ InformationProtectionLabels = (tenants as list, isCount as logical, schemaOnly a
                     renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
                     newQuery = Request.GetBatchQueryString(query, {"tenantId", "userId"}),
 
-                    // TODO - The query parameter needs to be add to the URL below. Without the query folding feature really is not working as it should.
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([userId] = null) then 
                             null
                         else
@@ -882,7 +881,7 @@ NavigationTable = (friendlyName as text, optional tenants as list) as table =>
                 let 
                     contracts = Rest.GetPages(graph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken()),
                     result = if (Table.HasColumns(contracts, {"customerId"})) then 
-                            contracts
+                            contracts[customerId]
                         else 
                            error Error.Record("No customers where discovered or specified", "Please verify that you used your partner credentials used to connect or specify a list of customer Azure Active Directory tenant identifiers.")
                 in
@@ -1135,7 +1134,7 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
         response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token),
         document = Json.Document(response), 
 
-        result =  if(Record.HasFields(document, {"error"})) then 
+        result = if(Record.HasFields(document, {"error"})) then 
                 error Error.Record(document[error][code], document[error][message], document[error][innerError])
             else
                 let
@@ -1197,9 +1196,21 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
         options = if(content <> null) then Record.AddField(baseOptions, "Content", Text.ToBinary(content)) else baseOptions, 
 
         response = Web.Contents(url, Record.AddField(options, "Headers", headers)),
-        buffered = Binary.Buffer(response)
+        buffered = Binary.Buffer(response),
+
+        metadata = Value.Metadata(response),
+        
+        result = if(metadata[Response.Status] >= 400) then 
+                let 
+                    message = Text.Format(
+                        "Request failed, status code: #{0} request-id: #{1}", 
+                        {metadata[Response.Status], metadata[Response.Headers][#"request-id"]})
+                in
+                    Diagnostics.Trace(TraceLevel.Error, message, () => buffered, true)
+            else 
+                buffered
     in 
-        buffered;
+        result;
 
 Rest.Scalar = (requests as table) =>
     let
