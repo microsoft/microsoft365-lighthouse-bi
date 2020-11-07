@@ -879,7 +879,14 @@ NavigationTable = (friendlyName as text, optional tenants as list) as table =>
         listOfTenants = if(tenants <> null and not List.IsEmpty(tenants)) then 
                 tenants
             else 
-                Rest.GetPages(graph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken())[customerId],
+                let 
+                    contracts = Rest.GetPages(graph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken()),
+                    result = if (Table.HasColumns(contracts, {"customerId"})) then 
+                            contracts
+                        else 
+                           error Error.Record("No customers where discovered or specified", "Please verify that you used your partner credentials used to connect or specify a list of customer Azure Active Directory tenant identifiers.")
+                in
+                    result,
 
         metadata = #table({"Version", "Value"}, {
             { "beta", GetMetadata("beta") },
