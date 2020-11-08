@@ -1216,8 +1216,8 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
         result = if(metadata[Response.Status] >= 400) then 
                 let 
                     message = Text.Format(
-                        "Request failed, status code: #{0} request-id: #{1}", 
-                        {metadata[Response.Status], metadata[Response.Headers][#"request-id"]})
+                        "Request failed - status code: #{0} request-id: #{1}", 
+                        {metadata[Response.Status], metadata[Headers][#"request-id"]})
                 in
                     Diagnostics.Trace(TraceLevel.Error, message, () => buffered, true)
             else 
