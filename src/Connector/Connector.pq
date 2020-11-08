@@ -242,7 +242,7 @@ Users = (tenants as list, isCount as logical, schemaOnly as logical, optional qu
 
 AntivirusIntents = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) => 
     let
-        result = Request.GetData("deviceManagementIntent", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/intents?$filter=templateId%20eq%20%27a6213d25-e4b3-4888-be36-56c88e0fbd3a%27%20or%20templateId%20eq%20%27b595dad1-920f-440e-ba12-22da622d5d92%27%20or%20templateId%20eq%20%272a68aa33-f853-4572-94bc-7dbdc87fd51e%27%20or%20templateId%20eq%20%27da332b88-bd29-4def-a442-e0993ed08e24%27", query, schema, metadata)
+        result = Request.GetData("deviceManagementIntent", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/intents?$filter=templateId%20eq%20%27a6213d25-e4b3-4888-be36-56c88e0fbd3a%27%20or%20templateId%20eq%20%27b595dad1-920f-440e-ba12-22da622d5d92%27%20or%20templateId%20eq%20%272a68aa33-f853-4572-94bc-7dbdc87fd51e%27%20or%20templateId%20eq%20%27da332b88-bd29-4def-a442-e0993ed08e24%27", query, schema, metadata)
     in 
         result;
 
@@ -294,7 +294,7 @@ DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logic
 
 DeviceCompliancePolicies = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("deviceCompliancePolicy", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/deviceCompliancePolicies?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,version", query, schema, metadata)
+        result = Request.GetData("deviceCompliancePolicy", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/deviceCompliancePolicies?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,version", query, schema, metadata)
     in
         result;
 
@@ -323,7 +323,7 @@ DeviceCompliancePolicyStates = (tenants as list, isCount as logical, schemaOnly 
 
 DeviceConfigurationProfiles = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("deviceConfiguration", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/deviceConfigurations?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,supportsScopeTags,deviceManagementApplicabilityRuleOsEdition,deviceManagementApplicabilityRuleOsVersion,deviceManagementApplicabilityRuleDeviceMode,version", query, schema, metadata)
+        result = Request.GetData("deviceConfiguration", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/deviceConfigurations?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,supportsScopeTags,deviceManagementApplicabilityRuleOsEdition,deviceManagementApplicabilityRuleOsVersion,deviceManagementApplicabilityRuleDeviceMode,version", query, schema, metadata)
     in
         result;
 
@@ -352,43 +352,43 @@ DeviceConfigurationStates = (tenants as list, isCount as logical, schemaOnly as 
 
 DeviceManagementAuditEvents = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("auditEvent", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/auditEvents", query, schema, metadata)
+        result = Request.GetData("auditEvent", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementApps.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/auditEvents", query, schema, metadata)
     in
         result;
 
 GroupPolicyConfigurations = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("groupPolicyConfiguration", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/groupPolicyConfigurations", query, schema, metadata)
+        result = Request.GetData("groupPolicyConfiguration", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/groupPolicyConfigurations", query, schema, metadata)
     in
         result;
 
 ManagedAppPolicies = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("managedAppPolicy", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceAppManagement/managedAppPolicies", query, schema, metadata)
+        result = Request.GetData("managedAppPolicy", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementApps.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceAppManagement/managedAppPolicies", query, schema, metadata)
     in
         result;
 
 ManagedDevices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("managedDevice", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/managedDevices", query, schema, metadata)
+        result = Request.GetData("managedDevice", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX),  tenants, "beta", true, "/beta/deviceManagement/managedDevices", query, schema, metadata)
     in
         result;
 
 MobileAppConfigurations = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("managedDeviceMobileAppConfiguration", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceAppManagement/mobileAppConfigurations", query, schema, metadata)
+        result = Request.GetData("managedDeviceMobileAppConfiguration", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementApps.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceAppManagement/mobileAppConfigurations", query, schema, metadata)
     in 
         result;
 
 MobileApps = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("mobileApp", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceAppManagement/mobileApps?$select=id,displayName,lastModifiedDateTime,roleScopeTagIds", query, schema, metadata)
+        result = Request.GetData("mobileApp", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementApps.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceAppManagement/mobileApps?$select=id,displayName,lastModifiedDateTime,roleScopeTagIds", query, schema, metadata)
     in 
         result;
 
 RemoteActionAudits = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("remoteActionAudit", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/remoteActionAudits", query, schema, metadata)
+        result = Request.GetData("remoteActionAudit", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/remoteActionAudits", query, schema, metadata)
     in 
         result;
 
@@ -417,25 +417,25 @@ SecurityBaselineStates = (tenants as list, isCount as logical, schemaOnly as log
 
 SubscriptionState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("deviceManagementSubscriptionState", isCount, schemaOnly, tenants, "beta", false, "/beta/deviceManagement/subscriptionState", query, schema, metadata)
+        result = Request.GetData("deviceManagementSubscriptionState", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", false, "/beta/deviceManagement/subscriptionState", query, schema, metadata)
     in
         result;
 
 UserExperienceAnalyticsDevicePerformance = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("userExperienceAnalyticsDevicePerformance", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDevicePerformance", query, schema, metadata)
+        result = Request.GetData("userExperienceAnalyticsDevicePerformance", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDevicePerformance", query, schema, metadata)
     in
         result;
 
 UserExperienceAnalyticsDeviceStartupProcessPerformance = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("userExperienceAnalyticsDeviceStartupProcessPerformance", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDeviceStartupProcessPerformance", query, schema, metadata)
+        result = Request.GetData("userExperienceAnalyticsDeviceStartupProcessPerformance", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDeviceStartupProcessPerformance", query, schema, metadata)
     in
         result;
 
 WindowsAutopilotDeviceIdentities = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("windowsAutopilotDeviceIdentity", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/windowsAutopilotDeviceIdentities", query, schema, metadata)
+        result = Request.GetData("windowsAutopilotDeviceIdentity", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementServiceConfig.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/windowsAutopilotDeviceIdentities", query, schema, metadata)
     in 
         result;
 
@@ -487,7 +487,7 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, isCount as logic
 
 WindowsUpdateForBusinessConfigurations = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("windowsUpdateForBusinessConfiguration", isCount, schemaOnly, tenants, "beta", true, "/beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)", query, schema, metadata)
+        result = Request.GetData("windowsUpdateForBusinessConfiguration", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)", query, schema, metadata)
     in
         result;
 
