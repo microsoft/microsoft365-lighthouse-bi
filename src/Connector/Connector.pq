@@ -13,6 +13,7 @@ version = "0.0.1";
 // Default variables
 
 DEFAULT_BATCH_SIZE = 5;
+MSGRAPH_SCOPE_PREFIX = "https://graph.microsoft.com/";
 
 // Data Source Kind description
 
@@ -138,44 +139,45 @@ TokenMethod = (tokenUri, grantType, tokenField, parameter, optional scope as tex
 
 ConditionalAccessPolicies = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("conditionalAccessPolicy", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/identity/conditionalAccess/policies", query, schema, metadata)
+        result = Request.GetData("conditionalAccessPolicy", isCount, schemaOnly, Request.GetScopeString({"Policy.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/identity/conditionalAccess/policies", query, schema, metadata)
     in 
         result;
 
 Contracts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("contract", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
+        result = Request.GetData("contract", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
     in
         result;
 
 CredentialUserRegistrationDetails = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("credentialUserRegistrationDetails", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/credentialUserRegistrationDetails", query, schema, metadata)
+        result = Request.GetData("credentialUserRegistrationDetails", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/credentialUserRegistrationDetails", query, schema, metadata)
     in
         result;
 
 Devices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("device", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/devices", query, schema, metadata)
+        result = Request.GetData("device", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/devices", query, schema, metadata)
     in
         result;
 
 Domains = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("domain", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/domains", query, schema, metadata)
+        result = Request.GetData("domain", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/domains", query, schema, metadata)
     in
         result;
 
 Groups = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("group", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/groups", query, schema, metadata)
+        result = Request.GetData("group", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/groups", query, schema, metadata)
     in
         result;
 
 IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
+        // TODO - Should only remove top and not everything because this impact query folding 
         removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
-        result = Request.GetData("identitySecurityDefaultsEnforcementPolicy", isCount, schemaOnly, tenants, "v1.0", false, "/v1.0/policies/identitySecurityDefaultsEnforcementPolicy", removedTopParameter, schema, metadata)
+        result = Request.GetData("identitySecurityDefaultsEnforcementPolicy", isCount, schemaOnly, Request.GetScopeString({"Policy.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", false, "/v1.0/policies/identitySecurityDefaultsEnforcementPolicy", removedTopParameter, schema, metadata)
     in 
         result;
 
@@ -205,33 +207,34 @@ LicenseDetails = (tenants as list, isCount as logical, schemaOnly as logical, op
 MyContracts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        result = Request.GetData("contract", isCount, schemaOnly, {}, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
+        result = Request.GetData("contract", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), {}, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
     in
         result;
 
 MyOrganization = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        result = Request.GetData("organization", isCount, schemaOnly, {}, "v1.0", true, "/v1.0/organization", query, schema, metadata)
+        result = Request.GetData("organization", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementServiceConfig.Read.All"}, MSGRAPH_SCOPE_PREFIX), {}, "v1.0", true, "/v1.0/organization", query, schema, metadata)
     in
         result;
 
 SignIns = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("signIn", isCount, schemaOnly, tenants, "beta", true, "/beta/auditLogs/signIns", query, schema, metadata)
+        result = Request.GetData("signIn", isCount, schemaOnly, Request.GetScopeString({"AuditLog.Read.All", "Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/auditLogs/signIns", query, schema, metadata)
     in 
         result;
 
 SubscribedSkus = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
+        // TODO - This is stripping out more than it should. Need to develop a solution to only remove the item and not the others. 
         removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
-        result = Request.GetData("subscribedSku", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/subscribedSkus", removedTopParameter, schema, metadata)
+        result = Request.GetData("subscribedSku", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All,"}, MSGRAPH_SCOPE_PREFIX),  tenants, "v1.0", true, "/v1.0/subscribedSkus", removedTopParameter, schema, metadata)
     in
         result;
 
 Users = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) => 
     let
-        result = Request.GetData("user", isCount, schemaOnly, tenants, "beta", true, "/beta/users", query, schema, metadata)
+        result = Request.GetData("user", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All,"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/users", query, schema, metadata)
     in 
         result;
 
@@ -763,18 +766,28 @@ Request.GetBatchQueryString = (query as text, itemsToRemove as list) =>
         in 
             result;
 
-Request.GetData = (resource as text, isCount as logical, schemaOnly as logical, tenants as list, version as text, isPaged as logical, relativeUrl as text, optional query, optional schema as type, optional metadata, optional additionalSchema as text) =>
+Request.GetData = (resource as text, isCount as logical, schemaOnly as logical, scope as text, tenants as list, version as text, isPaged as logical, relativeUrl as text, optional query, optional schema as type, optional metadata, optional additionalSchema as text) =>
     let
         result = if(schemaOnly) then 
                 Schema.GetKnownType(metadata{[Version = version]}[Value], resource, if(additionalSchema <> null) then additionalSchema else "tenantId = text")
             else 
                 let
                     requests = Request.Build(tenants, relativeUrl, query),
-                    data = if(isCount) then Rest.Scalar(requests) else Rest.Feed(requests, isPaged, schema)
+                    data = if(isCount) then Rest.Scalar(requests) else Rest.Feed(requests, isPaged, scope, schema)
                 in 
                     data
     in 
         result;
+
+Request.GetScopeString = (scopes as list, optional scopePrefix as text) as text =>
+    let
+        prefix = Value.IfNull(scopePrefix, ""),
+        addPrefix = List.Transform(scopes, each prefix & _),
+        asText = Text.Combine(addPrefix, " ")
+    in
+        asText;
+
+Value.IfNull = (a, b) => if a <> null then a else b;
 
 // Identity Protection 
 
@@ -1077,16 +1090,16 @@ View = (entity as text, metadata as table, tenants as list) as table =>
 
 // Network
 
-Rest.Feed = (requests as table, isPaged as logical, optional schema as type) => 
+Rest.Feed = (requests as table, isPaged as logical, scope as text, optional schema as type) => 
     let
         GetData = (input as record) =>
             let
                 requestContainsTopQuery = Text.Contains(input[secMgmtInsightsRequest], "top="),
 
                 data = try if(isPaged and not requestContainsTopQuery) then 
-                        Rest.GetPages(input[secMgmtInsightsRequest], GetAccessToken(input[tenantId], input[secMgmtInsightsScope]), schema)
+                        Rest.GetPages(input[secMgmtInsightsRequest], GetAccessToken(input[tenantId], scope), schema)
                     else
-                        Rest.GetContents(input[secMgmtInsightsRequest], GetAccessToken(input[tenantId], input[secMgmtInsightsScope]), isPaged and requestContainsTopQuery, schema),
+                        Rest.GetContents(input[secMgmtInsightsRequest], GetAccessToken(input[tenantId], scope), isPaged and requestContainsTopQuery, schema),
 
                 response = if(data[HasError]) then 
                     let
