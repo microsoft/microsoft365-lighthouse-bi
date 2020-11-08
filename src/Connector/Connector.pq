@@ -176,7 +176,7 @@ Groups = (tenants as list, isCount as logical, schemaOnly as logical, optional q
 
 IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        removedTopParameter = Request.RemoveParameter(query, "$top"),
+        removedTopParameter = Request.RemoveParameter("$top", query),
         result = Request.GetData("identitySecurityDefaultsEnforcementPolicy", isCount, schemaOnly, Request.GetScopeString({"Policy.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", false, "/v1.0/policies/identitySecurityDefaultsEnforcementPolicy", removedTopParameter, schema, metadata)
     in 
         result;
@@ -226,7 +226,7 @@ SignIns = (tenants as list, isCount as logical, schemaOnly as logical, optional 
 
 SubscribedSkus = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        removedTopParameter = Request.RemoveParameter(query, "$top"),
+        removedTopParameter = Request.RemoveParameter("$top", query),
         result = Request.GetData("subscribedSku", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All,"}, MSGRAPH_SCOPE_PREFIX),  tenants, "v1.0", true, "/v1.0/subscribedSkus", removedTopParameter, schema, metadata)
     in
         result;
@@ -787,12 +787,19 @@ Request.GetScopeString = (scopes as list, optional scopePrefix as text) as text 
     in
         asText;
 
-Request.RemoveParameter = (query as text, value as text) =>
-    let 
-        parts = Uri.Parts(graph_endpoint & Request.AppendQuery("/doesNotMatter", query)),
-        removed = Record.RemoveFields(parts[Query], {value}, MissingField.Ignore)
+Request.RemoveParameter = (field as text, optional query as text) =>
+    let
+        result = if(query = null) then 
+                null
+            else 
+                let
+                    parts = Uri.Parts(graph_endpoint & Request.AppendQuery("/doesNotMatter", query)),
+                    removed = Record.RemoveFields(parts[Query], {field}, MissingField.Ignore),
+                    value = Uri.BuildQueryString(removed)
+                in 
+                    value
     in 
-        removed;
+        result;
 
 Value.IfNull = (a, b) => if a <> null then a else b;
 
