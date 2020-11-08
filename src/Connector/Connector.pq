@@ -176,8 +176,7 @@ Groups = (tenants as list, isCount as logical, schemaOnly as logical, optional q
 
 IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        // TODO - Should only remove top and not everything because this impact query folding 
-        removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
+        removedTopParameter = Request.RemoveParameter(query, "$top"),
         result = Request.GetData("identitySecurityDefaultsEnforcementPolicy", isCount, schemaOnly, Request.GetScopeString({"Policy.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", false, "/v1.0/policies/identitySecurityDefaultsEnforcementPolicy", removedTopParameter, schema, metadata)
     in 
         result;
@@ -227,8 +226,7 @@ SignIns = (tenants as list, isCount as logical, schemaOnly as logical, optional 
 
 SubscribedSkus = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        // TODO - This is stripping out more than it should. Need to develop a solution to only remove the item and not the others. 
-        removedTopParameter = if (query <> null and Text.Contains(query, "top")) then null else query,
+        removedTopParameter = Request.RemoveParameter(query, "$top"),
         result = Request.GetData("subscribedSku", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All,"}, MSGRAPH_SCOPE_PREFIX),  tenants, "v1.0", true, "/v1.0/subscribedSkus", removedTopParameter, schema, metadata)
     in
         result;
@@ -788,6 +786,13 @@ Request.GetScopeString = (scopes as list, optional scopePrefix as text) as text 
         asText = Text.Combine(addPrefix, " ")
     in
         asText;
+
+Request.RemoveParameter = (query as text, value as text) =>
+    let 
+        parts = Uri.Parts(graph_endpoint & Request.AppendQuery("/doesNotMatter", query)),
+        removed = Record.RemoveFields(parts[Query], {value}, MissingField.Ignore)
+    in 
+        removed;
 
 Value.IfNull = (a, b) => if a <> null then a else b;
 
