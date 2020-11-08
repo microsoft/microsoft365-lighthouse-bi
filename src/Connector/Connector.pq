@@ -207,14 +207,16 @@ LicenseDetails = (tenants as list, isCount as logical, schemaOnly as logical, op
 MyContracts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        result = Request.GetData("contract", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), {}, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
+        listOfTenants = Rest.GetPages(graph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
+        result = Request.GetData("contract", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), listOfTenants[id], "v1.0", true, "/v1.0/contracts", query, schema, metadata)
     in
         result;
 
 MyOrganization = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        result = Request.GetData("organization", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementServiceConfig.Read.All"}, MSGRAPH_SCOPE_PREFIX), {}, "v1.0", true, "/v1.0/organization", query, schema, metadata)
+        listOfTenants = Rest.GetPages(graph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
+        result = Request.GetData("organization", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), listOfTenants[id], "v1.0", true, "/v1.0/organization", query, schema, metadata)
     in
         result;
 
