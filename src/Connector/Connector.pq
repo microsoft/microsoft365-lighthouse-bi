@@ -14,6 +14,7 @@ version = "0.0.1";
 
 DEFAULT_BATCH_SIZE = 5;
 MSGRAPH_SCOPE_PREFIX = "https://graph.microsoft.com/";
+O365SC_SCOPE_PREFIX = "https://manage.office.com/";
 
 // Data Source Kind description
 
@@ -1241,7 +1242,7 @@ ServiceCurrentStatus = (tenants as list, isCount as logical, schemaOnly as logic
             else 
                 let
                     requests = Request.BuildServiceCommunications(tenants, "/ServiceComms/CurrentStatus"),
-                    data = Rest.Feed(requests, true, schema)
+                    data = Rest.Feed(requests, true, Request.GetScopeString({"ServiceHealth.Read"}, O365SC_SCOPE_PREFIX), schema)
                 in 
                     data
     in
@@ -1254,7 +1255,7 @@ ServiceHistoricalStatus = (tenants as list, isCount as logical, schemaOnly as lo
             else 
                 let
                     requests = Request.BuildServiceCommunications(tenants, "/ServiceComms/HistoricalStatus"),
-                    data = Rest.Feed(requests, true, schema)
+                    data = Rest.Feed(requests, true, Request.GetScopeString({"ServiceHealth.Read"}, O365SC_SCOPE_PREFIX), schema)
                 in 
                     data
     in
@@ -1267,7 +1268,7 @@ ServiceMessages = (tenants as list, isCount as logical, schemaOnly as logical, o
             else 
                 let
                     requests = Request.BuildServiceCommunications(tenants, "/ServiceComms/Messages"),
-                    data = Rest.Feed(requests, true, schema)
+                    data = Rest.Feed(requests, true, Request.GetScopeString({"ServiceHealth.Read"}, O365SC_SCOPE_PREFIX), schema)
                 in 
                     data
     in
