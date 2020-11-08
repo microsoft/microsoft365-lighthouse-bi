@@ -1277,56 +1277,48 @@ ServiceMessages = (tenants as list, isCount as logical, schemaOnly as logical, o
 
 MailboxUsageDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("mailboxUsageDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getMailboxUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
-    in 
-        result;
-
-M365AppUserDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let
-        // TODO - Need to find a way to contend with the fact there does not appear to be a type in the metadata for this report
-        // TODO - Need to wire this report into the navigation
-        result = Request.GetData("TODO", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getM365AppUserDetail(period='D30')?$format=application/json", query, schema, metadata)
+        result = Request.GetData("mailboxUsageDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getMailboxUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
 Office365ActivationsUserDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("office365ActivationsUserDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getOffice365ActivationsUserDetail?$format=application/json", query, schema, metadata)
+        result = Request.GetData("office365ActivationsUserDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getOffice365ActivationsUserDetail?$format=application/json", query, schema, metadata)
     in 
         result;
 
 Office365ActiveUserDetails = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("office365ActiveUserDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getOffice365ActiveUserDetail(period='D30')?$format=application/json", query, schema, metadata)
+        result = Request.GetData("office365ActiveUserDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getOffice365ActiveUserDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
 Office365ServicesUserCounts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("office365ServicesUserCounts", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getOffice365ServicesUserCounts(period='D30')?$format=application/json", query, schema, metadata)
+        result = Request.GetData("office365ServicesUserCounts", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getOffice365ServicesUserCounts(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
 OneDriveUsageAccountDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("oneDriveUsageAccountDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getOneDriveUsageAccountDetail(period='D30')?$format=application/json", query, schema, metadata)
+        result = Request.GetData("oneDriveUsageAccountDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getOneDriveUsageAccountDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
 SharePointSiteUsageDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("sharePointSiteUsageDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getSharePointSiteUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
+        result = Request.GetData("sharePointSiteUsageDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getSharePointSiteUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
 TeamsUserActivityUserDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("teamsUserActivityUserDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getTeamsUserActivityUserDetail(period='D30')?$format=application/json", query, schema, metadata)
+        result = Request.GetData("teamsUserActivityUserDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getTeamsUserActivityUserDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
 
 YammerActivityUserDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let
-        result = Request.GetData("yammerActivityUserDetail", isCount, schemaOnly, tenants, "beta", true, "/beta/reports/getYammerActivityUserDetail(period='D30')?$format=application/json", query, schema, metadata)
+        result = Request.GetData("yammerActivityUserDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getYammerActivityUserDetail(period='D30')?$format=application/json", query, schema, metadata)
     in 
         result;
