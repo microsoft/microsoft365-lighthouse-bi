@@ -334,7 +334,7 @@ DeviceConfigurationStates = (tenants as list, isCount as logical, schemaOnly as 
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
-                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
+                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
@@ -344,7 +344,7 @@ DeviceConfigurationStates = (tenants as list, isCount as logical, schemaOnly as 
                         else
                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/deviceConfigurationStates", newQuery)),
                     
-                    batchResponse = Request.Batch(batchRequests, true, schema)
+                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
                 in 
                    batchResponse
     in 
@@ -399,7 +399,7 @@ SecurityBaselineStates = (tenants as list, isCount as logical, schemaOnly as log
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
-                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
+                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
@@ -409,7 +409,7 @@ SecurityBaselineStates = (tenants as list, isCount as logical, schemaOnly as log
                         else 
                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/securityBaselineStates", newQuery)),
                     
-                    batchResponse = Request.Batch(batchRequests, true, schema)
+                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
                 in 
                    batchResponse
     in 
@@ -446,7 +446,7 @@ WindowsProtectionState = (tenants as list, isCount as logical, schemaOnly as log
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
-                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
+                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
@@ -454,9 +454,9 @@ WindowsProtectionState = (tenants as list, isCount as logical, schemaOnly as log
                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
                             null
                         else 
-                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/", newQuery)),
+                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState", newQuery)),
                     
-                    batchResponse = Request.Batch(batchRequests, true, schema)
+                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
                 in 
                    batchResponse
     in 
@@ -469,7 +469,7 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, isCount as logic
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)&$select=id"),
-                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
+                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "policyId"}, MissingField.Ignore),
                     newQuery = Request.GetBatchQueryString(query, {"policyId", "tenantId"}),
@@ -479,7 +479,7 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, isCount as logic
                         else 
                             Request.AppendQuery("/deviceManagement/deviceConfigurations/" & [policyId] & "/microsoft.graph.windowsUpdateForBusinessConfiguration/deviceUpdateStates", newQuery)),
                     
-                    batchResponse = Request.Batch(batchRequests,true, schema)
+                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
                 in 
                    batchResponse
     in 
