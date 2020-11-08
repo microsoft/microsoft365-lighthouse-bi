@@ -188,7 +188,7 @@ LicenseDetails = (tenants as list, isCount as logical, schemaOnly as logical, op
             else
                 let
                     requests = Request.Build(tenants, "/v1.0/users?$select=id"),
-                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
+                    response = Rest.Feed(requests, true, Request.GetScopeString({"Directory.Read.All,"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
                     newQuery = Request.GetBatchQueryString(query, {"tenantId", "userId"}),
@@ -198,7 +198,7 @@ LicenseDetails = (tenants as list, isCount as logical, schemaOnly as logical, op
                         else 
                             Request.AppendQuery("/users/" & [userId] & "/licenseDetails", newQuery)),
                     
-                    batchResponse = Request.Batch(batchRequests, false, schema)
+                    batchResponse = Request.Batch(batchRequests, false, Request.GetScopeString({"Directory.Read.All,"}, MSGRAPH_SCOPE_PREFIX), schema)
                 in 
                    batchResponse
     in
@@ -809,7 +809,8 @@ Value.IfNull = (a, b) => if a <> null then a else b;
 
 RiskDetections = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("riskDetection", isCount, schemaOnly, Request.GetScopeString({"IdentityRiskEvent.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/identityProtection/riskDetections", query, schema, metadata)
+        removedTopParameter = Request.RemoveParameter("$top", query),
+        result = Request.GetData("riskDetection", isCount, schemaOnly, Request.GetScopeString({"IdentityRiskEvent.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/identityProtection/riskDetections", removedTopParameter, schema, metadata)
     in 
         result;
 
