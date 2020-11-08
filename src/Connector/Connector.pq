@@ -516,7 +516,6 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "IntelligentSecurity", "Alerts", Alerts },
     { "IntelligentSecurity", "SecureScore", SecureScore },
     { "IntelligentSecurity", "SecureScoreControlProfiles", SecureScoreControlProfiles }, 
-    { "IntelligentSecurity", "SecurityActions", SecurityActions },
 
     // Microsoft Endpoint Manager
     { "EndpointManager", "AntivirusIntents", AntivirusIntents },
@@ -793,7 +792,7 @@ Value.IfNull = (a, b) => if a <> null then a else b;
 
 RiskDetections = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("riskDetection", isCount, schemaOnly, tenants, "beta", true, "/beta/identityProtection/riskDetections", query, schema, metadata)
+        result = Request.GetData("riskDetection", isCount, schemaOnly, Request.GetScopeString({"IdentityRiskEvent.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/identityProtection/riskDetections", query, schema, metadata)
     in 
         result;
 
@@ -806,8 +805,8 @@ InformationProtectionLabels = (tenants as list, isCount as logical, schemaOnly a
                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "informationProtectionLabel", "tenantId = text, userId = text")
             else
                 let
-                    requests = Request.Build(tenants, "/beta/users?$select=id"),
-                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
+                    requests = Request.Build(tenants, "/v1.0/users?$select=id"),
+                    response = Rest.Feed(requests, true, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
                     newQuery = Request.GetBatchQueryString(query, {"tenantId", "userId"}),
@@ -817,7 +816,7 @@ InformationProtectionLabels = (tenants as list, isCount as logical, schemaOnly a
                         else
                             Request.AppendQuery("/users/" & [userId] & "/informationProtection/policy/labels", newQuery)),
                     
-                    batchResponse = Request.Batch(batchRequests, true, schema)
+                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"InformationProtectionPolicy.Read"}, MSGRAPH_SCOPE_PREFIX), schema)
                 in 
                    batchResponse
     in 
@@ -827,26 +826,20 @@ InformationProtectionLabels = (tenants as list, isCount as logical, schemaOnly a
 
 Alerts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("alert", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/alerts", query, schema, metadata)
+        result = Request.GetData("alert", isCount, schemaOnly, Request.GetScopeString({"SecurityEvents.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/security/alerts", query, schema, metadata)
     in 
         result;
 
 SecureScore = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("secureScore", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScores", query, schema, metadata)
+        result = Request.GetData("secureScore", isCount, schemaOnly, Request.GetScopeString({"SecurityEvents.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/security/secureScores", query, schema, metadata)
     in 
         result;
 
 SecureScoreControlProfiles = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
     let 
-        result = Request.GetData("secureScoreControlProfile", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
+        result = Request.GetData("secureScoreControlProfile", isCount, schemaOnly, Request.GetScopeString({"SecurityEvents.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
     in
-        result;
-
-SecurityActions = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("securityAction", isCount, schemaOnly, tenants, "beta", true, "/beta/security/securityActions", query, schema, metadata)
-    in 
         result;
 
 // Microsoft 365 Defender
