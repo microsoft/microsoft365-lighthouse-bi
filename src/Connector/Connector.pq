@@ -706,6 +706,8 @@ Request.AppendQuery = (url as text, optional query as text) =>
     in 
         result;
 
+// TODO - Consolidate the build functions into a single one
+
 Request.Build = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
         request = if(query = null or query = "") then 
@@ -715,14 +717,14 @@ Request.Build = (tenants as list, relativeUrl as text, optional query as text) =
         else 
             Uri.Combine(graph_endpoint, relativeUrl) & "?" & query,
 
-        data = #table({"tenantId", "secMgmtInsightsScope", "secMgmtInsightsRequest"}, {{tenants, "https://graph.microsoft.com/.default", request}}),
+        data = #table({"tenantId", "secMgmtInsightsRequest"}, {{tenants, request}}),
         expandedList = Table.ExpandListColumn(data, "tenantId")
     in 
         expandedList;
 
 Request.BuildDefender = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
-        source = #table({"tenantId", "secMgmtInsightsScope"}, {{tenants, "https://api.security.microsoft.com/.default"}}),
+        source = #table({"tenantId"}, {{tenants}}),
         expandedList = Table.ExpandListColumn(source, "tenantId"),
         data = Table.AddColumn(expandedList, "secMgmtInsightsRequest", each 
              if(query = null or query = "") then 
@@ -736,7 +738,7 @@ Request.BuildDefender = (tenants as list, relativeUrl as text, optional query as
 
 Request.BuildServiceCommunications = (tenants as list, relativeUrl as text, optional query as text) =>
     let 
-        source = #table({"tenantId", "secMgmtInsightsScope"}, {{tenants, "https://manage.office.com/.default"}}),
+        source = #table({"tenantId"}, {{tenants}}),
         expandedList = Table.ExpandListColumn(source, "tenantId"),
         data = Table.AddColumn(expandedList, "secMgmtInsightsRequest", each 
              if(query = null or query = "") then 
@@ -773,7 +775,7 @@ Request.GetData = (resource as text, isCount as logical, schemaOnly as logical, 
             else 
                 let
                     requests = Request.Build(tenants, relativeUrl, query),
-                    data = if(isCount) then Rest.Scalar(requests) else Rest.Feed(requests, isPaged, scope, schema)
+                    data = if(isCount) then Rest.Scalar(requests, scope) else Rest.Feed(requests, isPaged, scope, schema)
                 in 
                     data
     in 
@@ -1219,11 +1221,11 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
     in 
         result;
 
-Rest.Scalar = (requests as table) =>
+Rest.Scalar = (requests as table, scope as text) =>
     let
         GetData = (input as record) =>
             let 
-                response = Rest.Request(input[secMgmtInsightsRequest], "text/plain", GetAccessToken(input[tenantId], input[secMgmtInsightsScope])),
+                response = Rest.Request(input[secMgmtInsightsRequest], "text/plain", GetAccessToken(input[tenantId], scope)),
                 value = Text.FromBinary(response)
             in
                 value,
