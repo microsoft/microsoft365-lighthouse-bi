@@ -253,7 +253,7 @@ DetectedApps = (tenants as list, isCount as logical, schemaOnly as logical, opti
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
-                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
+                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
@@ -263,7 +263,7 @@ DetectedApps = (tenants as list, isCount as logical, schemaOnly as logical, opti
                         else 
                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/detectedApps", newQuery)),
                     
-                    batchResponse = Request.Batch(batchRequests, true, schema)
+                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
                 in 
                    batchResponse
     in 
@@ -276,7 +276,7 @@ DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logic
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
-                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
+                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
@@ -286,7 +286,7 @@ DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logic
                         else 
                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState", newQuery)),
                     
-                    batchResponse = Request.Batch(batchRequests, true, schema)
+                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
                 in 
                    batchResponse
     in 
@@ -305,7 +305,7 @@ DeviceCompliancePolicyStates = (tenants as list, isCount as logical, schemaOnly 
             else
                 let
                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
-                    response = Rest.Feed(requests, true, type table [tenantId = text, id = text]),
+                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
 
                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
@@ -315,7 +315,7 @@ DeviceCompliancePolicyStates = (tenants as list, isCount as logical, schemaOnly 
                         else
                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/deviceCompliancePolicyStates", newQuery)),
                     
-                    batchResponse = Request.Batch(batchRequests, true, schema)
+                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
                 in 
                    batchResponse
     in 
@@ -600,7 +600,7 @@ Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
 // Helpers 
 
-Request.Batch = (input as table, isBetaRequest as logical, schema as type) =>
+Request.Batch = (input as table, isBetaRequest as logical, scope as text, schema as type) =>
     let 
         GetData = (tenantId as text, input as table) =>
             let
@@ -613,7 +613,7 @@ Request.Batch = (input as table, isBetaRequest as logical, schema as type) =>
 
                             contents = "{""requests"":" & Text.FromBinary(Json.FromValue(rename)) & "}",
 
-                            token = GetAccessToken(tenantId),
+                            token = GetAccessToken(tenantId, scope),
                             urlToUse = if(isBetaRequest) then graph_endpoint & "/beta/$batch" else graph_endpoint & "/v1.0/$batch",
 
                             response = Rest.Request(urlToUse, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, Text.Remove(contents, "\")),
