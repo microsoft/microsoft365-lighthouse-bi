@@ -4,17 +4,23 @@
 
 authorize_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize";
 client_id = Text.FromBinary(Extension.Contents("client_id"));
-graph_endpoint = "https://graph.microsoft.com";
 logout_uri = "https://login.microsoftonline.com/logout.srf";
 redirect_uri = "https://oauth.powerbi.com/views/oauthredirect.html";
 token_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/token";
-version = "0.0.1";
 
-// Default variables
+default_batch_size = 5;
 
-DEFAULT_BATCH_SIZE = 5;
-MSGRAPH_SCOPE_PREFIX = "https://graph.microsoft.com/";
-O365SC_SCOPE_PREFIX = "https://manage.office.com/";
+msgraph_endpoint = "https://graph.microsoft.com/";
+manageoffice_endpoint = "https://manage.office.com/";
+partnercenter_endpoint = "https://api.partnercenter.microsoft.com/";
+
+// Control variables
+
+OperationType = [
+    Count = 0,
+    Request = 1,
+    SchemaOnly = 2
+];
 
 // Data Source Kind description
 
@@ -138,358 +144,205 @@ TokenMethod = (tokenUri, grantType, tokenField, parameter, optional scope as tex
 
 // Azure Active Directory
 
-ConditionalAccessPolicies = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of conditional access policies for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of conditional access policies for the speicified tenants.
+*/
+ConditionalAccessPolicies = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        result = Request.GetData("conditionalAccessPolicy", isCount, schemaOnly, Request.GetScopeString({"Policy.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/identity/conditionalAccess/policies", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/identity/conditionalAccess/policies", {"Policy.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "conditionalAccessPolicy", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-Contracts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of credential user registration details fo the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of credential user registration details fo the specified list of tenants.
+*/
+CredentialUserRegistrationDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/reports/credentialUserRegistrationDetails", {"Reports.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "credentialUserRegistrationDetails", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+/*
+* Gets a table of devices for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of devices for the specified list of tenants.
+*/
+Devices = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/devices", {"Directory.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "device", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+/*
+* Gets a table of domains for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of domains for the specified list of tenants.
+*/
+Domains = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/domains", {"Directory.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "domain", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+/*
+* Gets a table of groups for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of groups for the specified list of tenants.
+*/
+Groups = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/groups", {"Directory.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "group", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+/*
+* Gets a table that reflects the state of Identity Security Defaults for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table that reflects the state of Identity Security Defaults for the specified list of tenants.
+*/
+IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        result = Request.GetData("contract", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/contracts", query, schema, metadata)
-    in
+        removedTopParameter = Request.RemoveQueryParameter("$top", query),
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/policies/identitySecurityDefaultsEnforcementPolicy", {"Policy.Read.All"}, removedTopParameter), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "identitySecurityDefaultsEnforcementPolicy", schema),
+        result = Request.Execute(operation, request, false, requestSchema)
+    in 
         result;
 
-CredentialUserRegistrationDetails = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of license details associated with the users for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of license details associated with the users for the specified list of tenants.
+*/
+LicenseDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        result = Request.GetData("credentialUserRegistrationDetails", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/credentialUserRegistrationDetails", query, schema, metadata)
+        // TODO - Need to add support for additional fields 'userId = text' needs to be appended to the schema for this request
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "licenseDetails", schema),
+
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/users?$select=id", {"Directory.Read.All"}),
+        users = Request.Execute(OperationType[Request], request),
+        renamed = Table.RenameColumns(users, {"id", "userId"}, MissingField.Ignore),
+        
+        // Ensure the tenantId and userId values are not present in the select portion of query string.
+        // Since the query string will be ablled to the batch request these values will not present in that dataset.
+        newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "userId"}, query),
+
+        batchRequests = Request.BuildBatches(
+            renamed, 
+            "https://graph.microsoft.com/v1.0/$batch",
+            {"Directory.Read.All"}, 
+            each if([userId] = null) then 
+                    null
+                else 
+                    Request.AppendQuery("/users/" & [userId] & "/licenseDetails", newQuery)),
+
+        result = Request.Batch(batchRequests, operation, query, requestSchema, {"Directory.Read.All"})
     in
         result;
 
-Devices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("device", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/devices", query, schema, metadata)
-    in
-        result;
-
-Domains = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("domain", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/domains", query, schema, metadata)
-    in
-        result;
-
-Groups = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("group", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/groups", query, schema, metadata)
-    in
-        result;
-
-IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of authentication activities for users in the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of authentication activities for users in the specified list of tenants.
+*/
+SignIns = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        removedTopParameter = Request.RemoveParameter("$top", query),
-        result = Request.GetData("identitySecurityDefaultsEnforcementPolicy", isCount, schemaOnly, Request.GetScopeString({"Policy.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", false, "/v1.0/policies/identitySecurityDefaultsEnforcementPolicy", removedTopParameter, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "beta/auditLogs/signIns", {"AuditLog.Read.All", "Directory.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "signIn", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-LicenseDetails = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = "v1.0"]}[Value], "licenseDetails", "tenantId = text, userId = text")
-            else
-                let
-                    requests = Request.Build(tenants, "/v1.0/users?$select=id"),
-                    response = Rest.Feed(requests, true, Request.GetScopeString({"Directory.Read.All,"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
-
-                    renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
-                    newQuery = Request.GetBatchQueryString(query, {"tenantId", "userId"}),
-                    
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([userId] = null) then 
-                            null
-                        else 
-                            Request.AppendQuery("/users/" & [userId] & "/licenseDetails", newQuery)),
-                    
-                    batchResponse = Request.Batch(batchRequests, false, Request.GetScopeString({"Directory.Read.All,"}, MSGRAPH_SCOPE_PREFIX), schema)
-                in 
-                   batchResponse
-    in
-        result;
-
-MyContracts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of subscribed SKUs for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of subscribed SKUs for the specified list of tenants.
+*/
+SubscribedSkus = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        listOfTenants = Rest.GetPages(graph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
-        result = Request.GetData("contract", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), listOfTenants[id], "v1.0", true, "/v1.0/contracts", query, schema, metadata)
+        removedTopParameter = Request.RemoveQueryParameter("$top", query),
+
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/subscribedSkus", {"Directory.Read.All"}, removedTopParameter), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "subscribedSku", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in
         result;
 
-MyOrganization = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of users for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of users for the specified list of tenants.
+*/
+Users = (tenants as list, operation as number, optional query as text, optional schema as type) => 
     let
-        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        listOfTenants = Rest.GetPages(graph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
-        result = Request.GetData("organization", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), listOfTenants[id], "v1.0", true, "/v1.0/organization", query, schema, metadata)
-    in
-        result;
-
-SignIns = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let
-        result = Request.GetData("signIn", isCount, schemaOnly, Request.GetScopeString({"AuditLog.Read.All", "Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/auditLogs/signIns", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/users", {"Directory.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "user", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
-        result;
-
-SubscribedSkus = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let
-        removedTopParameter = Request.RemoveParameter("$top", query),
-        result = Request.GetData("subscribedSku", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All,"}, MSGRAPH_SCOPE_PREFIX),  tenants, "v1.0", true, "/v1.0/subscribedSkus", removedTopParameter, schema, metadata)
-    in
-        result;
-
-Users = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) => 
-    let
-        result = Request.GetData("user", isCount, schemaOnly, Request.GetScopeString({"Directory.Read.All,"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/users", query, schema, metadata)
-    in 
-        result;
-
-// Device Management 
-
-AntivirusIntents = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) => 
-    let
-        result = Request.GetData("deviceManagementIntent", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/intents?$filter=templateId%20eq%20%27a6213d25-e4b3-4888-be36-56c88e0fbd3a%27%20or%20templateId%20eq%20%27b595dad1-920f-440e-ba12-22da622d5d92%27%20or%20templateId%20eq%20%272a68aa33-f853-4572-94bc-7dbdc87fd51e%27%20or%20templateId%20eq%20%27da332b88-bd29-4def-a442-e0993ed08e24%27", query, schema, metadata)
-    in 
-        result;
-
-DetectedApps = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-         result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "detectedApp", "tenantId = text, deviceId = text")
-            else
-                let
-                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
-                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
-
-                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
-                    
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
-                            null
-                        else 
-                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/detectedApps", newQuery)),
-                    
-                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
-                in 
-                   batchResponse
-    in 
-        result;
-
-DetectedMalwareState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-         result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId = text")
-            else
-                let
-                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
-                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
-
-                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
-                    
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
-                            null 
-                        else 
-                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState", newQuery)),
-                    
-                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
-                in 
-                   batchResponse
-    in 
-        result;
-
-DeviceCompliancePolicies = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("deviceCompliancePolicy", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/deviceCompliancePolicies?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,version", query, schema, metadata)
-    in
-        result;
-
-DeviceCompliancePolicyStates = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-         result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "deviceCompliancePolicyState", "tenantId = text, deviceId = text")
-            else
-                let
-                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
-                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
-
-                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
-                    
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
-                            null
-                        else
-                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/deviceCompliancePolicyStates", newQuery)),
-                    
-                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
-                in 
-                   batchResponse
-    in 
-        result;
-
-DeviceConfigurationProfiles = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("deviceConfiguration", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/deviceConfigurations?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,supportsScopeTags,deviceManagementApplicabilityRuleOsEdition,deviceManagementApplicabilityRuleOsVersion,deviceManagementApplicabilityRuleDeviceMode,version", query, schema, metadata)
-    in
-        result;
-
-DeviceConfigurationStates = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-         result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "deviceConfigurationState", "tenantId = text, deviceId = text")
-            else
-                let
-                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
-                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
-
-                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
-
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
-                            null
-                        else
-                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/deviceConfigurationStates", newQuery)),
-                    
-                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
-                in 
-                   batchResponse
-    in 
-        result;
-
-DeviceManagementAuditEvents = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("auditEvent", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementApps.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/auditEvents", query, schema, metadata)
-    in
-        result;
-
-GroupPolicyConfigurations = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("groupPolicyConfiguration", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/groupPolicyConfigurations", query, schema, metadata)
-    in
-        result;
-
-ManagedAppPolicies = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("managedAppPolicy", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementApps.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceAppManagement/managedAppPolicies", query, schema, metadata)
-    in
-        result;
-
-ManagedDevices = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("managedDevice", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX),  tenants, "beta", true, "/beta/deviceManagement/managedDevices", query, schema, metadata)
-    in
-        result;
-
-MobileAppConfigurations = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("managedDeviceMobileAppConfiguration", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementApps.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceAppManagement/mobileAppConfigurations", query, schema, metadata)
-    in 
-        result;
-
-MobileApps = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("mobileApp", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementApps.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceAppManagement/mobileApps?$select=id,displayName,lastModifiedDateTime,roleScopeTagIds", query, schema, metadata)
-    in 
-        result;
-
-RemoteActionAudits = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("remoteActionAudit", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/remoteActionAudits", query, schema, metadata)
-    in 
-        result;
-
-SecurityBaselineStates = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-         result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "securityBaselineState", "tenantId = text, deviceId = text")
-            else
-                let
-                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
-                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
-
-                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
-
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
-                            null
-                        else 
-                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/securityBaselineStates", newQuery)),
-                    
-                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
-                in 
-                   batchResponse
-    in 
-        result;
-
-SubscriptionState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("deviceManagementSubscriptionState", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", false, "/beta/deviceManagement/subscriptionState", query, schema, metadata)
-    in
-        result;
-
-UserExperienceAnalyticsDevicePerformance = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("userExperienceAnalyticsDevicePerformance", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDevicePerformance", query, schema, metadata)
-    in
-        result;
-
-UserExperienceAnalyticsDeviceStartupProcessPerformance = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("userExperienceAnalyticsDeviceStartupProcessPerformance", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/userExperienceAnalyticsDeviceStartupProcessPerformance", query, schema, metadata)
-    in
-        result;
-
-WindowsAutopilotDeviceIdentities = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let
-        result = Request.GetData("windowsAutopilotDeviceIdentity", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementServiceConfig.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/windowsAutopilotDeviceIdentities", query, schema, metadata)
-    in 
-        result;
-
-WindowsProtectionState = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-         result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsProtectionState", "tenantId = text, deviceId = text")
-            else
-                let
-                    requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
-                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
-
-                    renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
-                    newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
-
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
-                            null
-                        else 
-                            Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState", newQuery)),
-                    
-                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
-                in 
-                   batchResponse
-    in 
-        result;
-
-WindowsUpdateForBusinessConfigurationStates = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-         result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsUpdateState", "tenantId = text, policyId = text")
-            else
-                let
-                    requests = Request.Build(tenants, "/beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)&$select=id"),
-                    response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
-
-                    renamed = Table.RenameColumns(response, {"id", "policyId"}, MissingField.Ignore),
-                    newQuery = Request.GetBatchQueryString(query, {"policyId", "tenantId"}),
-
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([policyId] = null) then 
-                            null
-                        else 
-                            Request.AppendQuery("/deviceManagement/deviceConfigurations/" & [policyId] & "/microsoft.graph.windowsUpdateForBusinessConfiguration/deviceUpdateStates", newQuery)),
-                    
-                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
-                in 
-                   batchResponse
-    in 
-        result;
-
-WindowsUpdateForBusinessConfigurations = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        result = Request.GetData("windowsUpdateForBusinessConfiguration", isCount, schemaOnly, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)", query, schema, metadata)
-    in
         result;
 
 // Entities
@@ -497,35 +350,26 @@ WindowsUpdateForBusinessConfigurations = (tenants as list, isCount as logical, s
 EntityTable = #table({"Workload", "Name", "Action"}, {
     // Azure Active Directory 
     { "AzureAd", "ConditionalAccessPolicies", ConditionalAccessPolicies},
-    { "AzureAd", "Contracts", Contracts },
     { "AzureAd", "Domains", Domains },
     { "AzureAd", "Devices", Devices },
     { "AzureAd", "Groups", Groups },
     { "AzureAd", "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy },
-    { "AzureAd", "LicenseDetails", LicenseDetails },
     { "AzureAd", "SignIns", SignIns },
     { "AzureAd", "SubscribedSkus", SubscribedSkus },
     { "AzureAd", "Users", Users },
 
-    // Identity Protection
-    { "IdentityProtection", "RiskDetections", RiskDetections },
-
-    // Information Protection 
-    { "InformationProtection", "InformationProtectionLabels", InformationProtectionLabels },
-
     // Intelligent Security Graph
     { "IntelligentSecurity", "Alerts", Alerts },
     { "IntelligentSecurity", "SecureScore", SecureScore },
-    { "IntelligentSecurity", "SecureScoreControlProfiles", SecureScoreControlProfiles }, 
+    { "IntelligentSecurity", "SecureScoreControlProfiles", SecureScoreControlProfiles },
 
     // Microsoft Endpoint Manager
-    { "EndpointManager", "AntivirusIntents", AntivirusIntents },
-    { "EndpointManager", "DetectedApps", DetectedApps },
-    { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
+    // { "EndpointManager", "DetectedApps", DetectedApps },
+    // { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
     { "EndpointManager", "DeviceCompliancePolicies", DeviceCompliancePolicies },
-    { "EndpointManager", "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates },
+    // { "EndpointManager", "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates },
     { "EndpointManager", "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
-    { "EndpointManager", "DeviceConfigurationStates", DeviceConfigurationStates },
+    //{ "EndpointManager", "DeviceConfigurationStates", DeviceConfigurationStates },
     { "EndpointManager", "DeviceManagementAuditEvents", DeviceManagementAuditEvents },
     { "EndpointManager", "GroupPolicyConfigurations", GroupPolicyConfigurations },
     { "EndpointManager", "ManagedDevices", ManagedDevices },
@@ -533,39 +377,44 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "MobileApps", MobileApps },
     { "EndpointManager", "ManagedAppPolicies", ManagedAppPolicies },
     { "EndpointManager", "RemoteActionAudits", RemoteActionAudits },
-    { "EndpointManager", "SecurityBaselineStates", SecurityBaselineStates },
+    // { "EndpointManager", "SecurityBaselineStates", SecurityBaselineStates },
     { "EndpointManager", "SubscriptionState", SubscriptionState },
     { "EndpointManager", "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance },
     { "EndpointManager", "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
-    { "EndpointManager", "WindowsProtectionState", WindowsProtectionState },
+    // { "EndpointManager", "WindowsProtectionState", WindowsProtectionState },
     { "EndpointManager", "WindowsAutopilotDeviceIdentities", WindowsAutopilotDeviceIdentities },
-    { "EndpointManager", "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
+    // { "EndpointManager", "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
     { "EndpointManager", "WindowsUpdateForBusinessConfigurations", WindowsUpdateForBusinessConfigurations },
 
-    // Microsoft 365 Defender
-    { "Microsoft365Defender", "SecurityIncidents", SecurityIncidents },
-
-    // My
-    { "My", "MyContracts", MyContracts },
+    // My 
+    { "My", "MyCustomers", MyCustomers },
     { "My", "MyOrganization", MyOrganization },
+    { "My", "MyResellers", MyResellers },
+
+    // Office 365 Service Communications 
+    { "ServiceCommunications", "ServiceCurrentStatus", ServiceCurrentStatus },
+    { "ServiceCommunications", "ServiceHistoricalStatus", ServiceHistoricalStatus },
+    { "ServiceCommunications", "ServiceMessages", ServiceMessages },
 
     // Reporting
     { "Reporting", "CredentialUserRegistrationDetails", CredentialUserRegistrationDetails },
-    { "Reporting", "MailboxUsageDetail", MailboxUsageDetail },
-    { "Reporting", "Office365ActivationsUserDetail", Office365ActivationsUserDetail },
+    { "Reporting", "MailboxUsageDetails", MailboxUsageDetails },
+    { "Reporting", "Office365ActivationsUserDetails", Office365ActivationsUserDetails },
     { "Reporting", "Office365ActiveUserDetails", Office365ActiveUserDetails },
     { "Reporting", "Office365ServicesUserCounts", Office365ServicesUserCounts },
-    { "Reporting", "OneDriveUsageAccountDetail", OneDriveUsageAccountDetail },
-    { "Reporting", "SharePointSiteUsageDetail", SharePointSiteUsageDetail },
-    { "Reporting", "TeamsUserActivityUserDetail", TeamsUserActivityUserDetail },
-    { "Reporting", "YammerActivityUserDetail", YammerActivityUserDetail },
-
-    // Service Communications 
-    { "ServiceCommunications", "ServiceCurrentStatus", ServiceCurrentStatus },
-    { "ServiceCommunications", "ServiceHistoricalStatus", ServiceHistoricalStatus },
-    { "ServiceCommunications", "ServiceMessages", ServiceMessages }
+    { "Reporting", "OneDriveUsageAccountDetails", OneDriveUsageAccountDetails },
+    { "Reporting", "SharePointSiteUsageDetails", SharePointSiteUsageDetails },
+    { "Reporting", "TeamsUserActivityUserDetails", TeamsUserActivityUserDetails },
+    { "Reporting", "YammerActivityUserDetails", YammerActivityUserDetails }
 });
 
+/*
+* Gets the action for the specified entity.
+* 
+* entity: Name of the action to perform.
+*
+* Returns a function that represnts the action to perform.
+*/
 GetActionForEntity = (entity as text) =>
     try 
         EntityTable{[Name = entity]}[Action]
@@ -598,273 +447,387 @@ Table.ChangeType = Extension.LoadFunction("Table.ChangeType.pqm");
 Table.GenerateByPage = Extension.LoadFunction("Table.GenerateByPage.pqm");
 Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
-// Helpers 
-
-Request.Batch = (input as table, isBetaRequest as logical, scope as text, schema as type) =>
-    let 
-        GetData = (tenantId as text, input as table) =>
-            let
-                result = if (List.IsEmpty(List.RemoveNulls(input[secMgmtInsightsRequest]))) then 
-                        Table.FromRecords({[id = 1, status = 200, body = null]})
-                    else 
-                        let 
-                            data = Table.SelectColumns(input, {"id", "method", "secMgmtInsightsRequest"}),
-                            rename = Table.RenameColumns(data, {"secMgmtInsightsRequest", "url"}),
-
-                            contents = "{""requests"":" & Text.FromBinary(Json.FromValue(rename)) & "}",
-
-                            token = GetAccessToken(tenantId, scope),
-                            urlToUse = if(isBetaRequest) then graph_endpoint & "/beta/$batch" else graph_endpoint & "/v1.0/$batch",
-
-                            response = Rest.Request(urlToUse, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, Text.Remove(contents, "\")),
-                            document = Json.Document(response),
-
-                            expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
-                            expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "body"}),
-
-                            changedType = Table.TransformColumnTypes(expandedRecord, {{"id", type number}})
-                        in 
-                            changedType
-            in
-                result,
-
-        Process = (tenantId as text, requests as table) => Table.GenerateByPage((previous) =>
-            let
-                indexValue = Value.Metadata(previous)[Index]?,
-                index = if(indexValue <> null) then indexValue else 0,
-
-                data = if(index = 0) then Table.FirstN(requests, DEFAULT_BATCH_SIZE) else 
-                    let
-                        initialValue = Table.Skip(requests, index), 
-                        newValue = Table.FirstN(initialValue, DEFAULT_BATCH_SIZE)
-                    in
-                        if (Table.IsEmpty(newValue)) then null else newValue,
-
-                output = if(data = null) then null else 
-                    let 
-                        addIndexColumn = Table.AddIndexColumn(data, "id", index + 1),
-                        addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
-
-                        response = GetData(tenantId, addMethodColumn),
-
-                        joinedTable = Table.Join(addMethodColumn, "id", response, "id")
-                    in
-                        joinedTable
-            in
-                output meta [Index = index + DEFAULT_BATCH_SIZE]),
-
-        withErrors = Table.SelectRowsWithErrors(input),
-        withoutErrors = Table.RemoveRowsWithErrors(input), 
-
-        groupedRows = Table.Group(withoutErrors, {"tenantId"}, {{"requests", each _}}),
-        runRequest = Table.AddColumn(groupedRows, "responses", each Process([tenantId], [requests])),
-
-        responses = Table.Combine(runRequest[responses]),
-
-        // Remove the columns that were used for processing to avoid any issues with expanding the data returne from the request
-        removed = Table.RemoveColumns(responses, {"id", "method", "status", "url"}, MissingField.Ignore),
-
-        expandedBody = Table.ExpandRecordColumn(removed, "body", {"value"}),
-        expandedValue = Table.ExpandListColumn(expandedBody, "value"),
-                        
-        filteredRows = Table.SelectRows(expandedValue, each [value] <> null and [value] <> ""),
-        listOfColumns =  List.Union(List.Transform(filteredRows[value], each Record.FieldNames(_))),
-        expanded = Table.ExpandRecordColumn(expandedValue, "value", listOfColumns),
-
-        result = if(Table.IsEmpty(withErrors)) then 
-                expanded 
-            else 
-                let 
-                    AddErrorToEachField = (input as record, fields as list) =>
-                        let
-                            asTable = Table.FromList(fields, Splitter.SplitByNothing()),
-                            unpivot = Table.Unpivot(asTable, {"Column1"}, "Attribute", "Value"),
-                            pivot = Table.Pivot(unpivot, List.Distinct(unpivot[Value]), "Value", "Attribute", each error Record.FieldValues(input){1})
-                        in 
-                            pivot,
-
-                    fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
-                    difference = List.Difference(fields, Table.ColumnNames(withErrors)),
-
-                    data = Table.AddColumn(withErrors, "Column1", each AddErrorToEachField(_, difference)),
-                    withDataExpanded = Table.ExpandTableColumn(data, "Column1", difference),
-
-                    combined = Table.Combine({expanded, withDataExpanded}, fields)
-                in 
-                    combined
-        in
-            result;
-
-Request.AppendQuery = (url as text, optional query as text) =>
-    let 
-        result = if(query = null or query = "") then 
-            url
-        else if(Text.Contains(url, "?")) then 
-            url & "&" & Text.AfterDelimiter(query, "?")
-        else 
-            url & "?" & query
-    in 
-        result;
-
-// TODO - Consolidate the build functions into a single one
-
-Request.Build = (tenants as list, relativeUrl as text, optional query as text) =>
-    let 
-        request = if(query = null or query = "") then 
-            Uri.Combine(graph_endpoint, relativeUrl)
-        else if(Text.Contains(relativeUrl, "?")) then 
-            Uri.Combine(graph_endpoint, relativeUrl) & "&" & Text.AfterDelimiter(query, "?")
-        else 
-            Uri.Combine(graph_endpoint, relativeUrl) & "?" & query,
-
-        data = #table({"tenantId", "secMgmtInsightsRequest"}, {{tenants, request}}),
-        expandedList = Table.ExpandListColumn(data, "tenantId")
-    in 
-        expandedList;
-
-Request.BuildDefender = (tenants as list, relativeUrl as text, optional query as text) =>
-    let 
-        source = #table({"tenantId"}, {{tenants}}),
-        expandedList = Table.ExpandListColumn(source, "tenantId"),
-        data = Table.AddColumn(expandedList, "secMgmtInsightsRequest", each 
-             if(query = null or query = "") then 
-                "https://api.security.microsoft.com/api/" & relativeUrl 
-            else if(Text.Contains(relativeUrl, "?")) then 
-                "https://api.security.microsoft.com/api/" & relativeUrl & "&" & Text.AfterDelimiter(query, "?")
-            else 
-                "https://api.security.microsoft.com/api/" & relativeUrl & query)
-    in 
-        data;
-
-Request.BuildServiceCommunications = (tenants as list, relativeUrl as text, optional query as text) =>
-    let 
-        source = #table({"tenantId"}, {{tenants}}),
-        expandedList = Table.ExpandListColumn(source, "tenantId"),
-        data = Table.AddColumn(expandedList, "secMgmtInsightsRequest", each 
-             if(query = null or query = "") then 
-                "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl 
-            else if(Text.Contains(relativeUrl, "?")) then 
-                "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl & "&" & Text.AfterDelimiter(query, "?")
-            else 
-                "https://manage.office.com/api/v1.0/" & [tenantId] & relativeUrl & query)
-    in 
-        data;
-
-Request.GetBatchQueryString = (query as text, itemsToRemove as list) =>
-    let
-        parts = Uri.Parts(graph_endpoint & Request.AppendQuery("/doesNotMatter", query)),
-
-        result = if(Record.HasFields(parts[Query], {"$select"})) then
-                let
-                    current = Text.Combine(List.RemoveItems(Text.Split(parts[Query][#"$select"], ","), itemsToRemove), ","),
-                    removed = Record.RemoveFields(parts[Query], "$select", MissingField.Ignore),
-                    added = Record.AddField(removed, "$select", current),
-
-                    result = Uri.BuildQueryString(added)
-                in 
-                    result
-            else
-                query
-        in 
-            result;
-
-Request.GetData = (resource as text, isCount as logical, schemaOnly as logical, scope as text, tenants as list, version as text, isPaged as logical, relativeUrl as text, optional query, optional schema as type, optional metadata, optional additionalSchema as text) =>
-    let
-        result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = version]}[Value], resource, if(additionalSchema <> null) then additionalSchema else "tenantId = text")
-            else 
-                let
-                    requests = Request.Build(tenants, relativeUrl, query),
-                    data = if(isCount) then Rest.Scalar(requests, scope) else Rest.Feed(requests, isPaged, scope, schema)
-                in 
-                    data
-    in 
-        result;
-
-Request.GetScopeString = (scopes as list, optional scopePrefix as text) as text =>
-    let
-        prefix = Value.IfNull(scopePrefix, ""),
-        addPrefix = List.Transform(scopes, each prefix & _),
-        asText = Text.Combine(addPrefix, " ")
-    in
-        asText;
-
-Request.RemoveParameter = (field as text, optional query as text) =>
-    let
-        result = if(query = null) then 
-                null
-            else 
-                let
-                    parts = Uri.Parts(graph_endpoint & Request.AppendQuery("/doesNotMatter", query)),
-                    removed = Record.RemoveFields(parts[Query], {field}, MissingField.Ignore),
-                    value = Uri.BuildQueryString(removed)
-                in 
-                    value
-    in 
-        result;
+// Helper 
 
 Value.IfNull = (a, b) => if a <> null then a else b;
 
-// Identity Protection 
-
-RiskDetections = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-        removedTopParameter = Request.RemoveParameter("$top", query),
-        result = Request.GetData("riskDetection", isCount, schemaOnly, Request.GetScopeString({"IdentityRiskEvent.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/identityProtection/riskDetections", removedTopParameter, schema, metadata)
-    in 
-        result;
-
-// Information Protection 
-
-// TODO - Right now this is return a null table, we need to figure out why
-InformationProtectionLabels = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
-    let 
-         result = if(schemaOnly) then 
-                Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "informationProtectionLabel", "tenantId = text, userId = text")
-            else
-                let
-                    requests = Request.Build(tenants, "/v1.0/users?$select=id"),
-                    response = Rest.Feed(requests, true, Request.GetScopeString({"Directory.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
-
-                    renamed = Table.RenameColumns(response, {"id", "userId"}, MissingField.Ignore),
-                    newQuery = Request.GetBatchQueryString(query, {"tenantId", "userId"}),
-
-                    batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([userId] = null) then 
-                            null
-                        else
-                            Request.AppendQuery("/users/" & [userId] & "/informationProtection/policy/labels", newQuery)),
-                    
-                    batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"InformationProtectionPolicy.Read"}, MSGRAPH_SCOPE_PREFIX), schema)
-                in 
-                   batchResponse
-    in 
-        result;
-
 // Intelligent Security Graph
 
-Alerts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of security alerts for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of security alerts for the specified list of tenants.
+*/
+Alerts = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        result = Request.GetData("alert", isCount, schemaOnly, Request.GetScopeString({"SecurityEvents.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/security/alerts", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/security/alerts", {"SecurityEvents.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "alert", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-SecureScore = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of secure score entries for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of secure score entries for the specified list of tenants.
+*/
+SecureScore = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        result = Request.GetData("secureScore", isCount, schemaOnly, Request.GetScopeString({"SecurityEvents.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/security/secureScores", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/security/secureScores", {"SecurityEvents.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "secureScore", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-SecureScoreControlProfiles = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of secure score control profiles for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of secure score control profiles for the specified list of tenants.
+*/
+SecureScoreControlProfiles = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        result = Request.GetData("secureScoreControlProfile", isCount, schemaOnly, Request.GetScopeString({"SecurityEvents.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/security/secureScoreControlProfiles", {"SecurityEvents.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "secureScoreControlProfile", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in
         result;
 
-// Microsoft 365 Defender
+// Microsoft Endpoint Manager
 
-SecurityIncidents = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of secure score control profiles for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of secure score control profiles for the specified list of tenants.
+*/
+// DetectedApps = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+//     let 
+//          result = if(schemaOnly) then 
+//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "detectedApp", "tenantId = text, deviceId = text")
+//             else
+//                 let
+//                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
+//                     response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
+// 
+//                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+//                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+//                     
+//                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+//                             null
+//                         else 
+//                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/detectedApps", newQuery)),
+//                     
+//                     batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
+//                 in 
+//                    batchResponse
+//     in 
+//         result;
+// 
+// DetectedMalwareState = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+//     let 
+//          result = if(schemaOnly) then 
+//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsDeviceMalwareState", "tenantId = text, deviceId = text")
+//             else
+//                 let
+//                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
+//                     response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
+// 
+//                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+//                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+//                     
+//                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+//                             null 
+//                         else 
+//                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState/detectedMalwareState", newQuery)),
+//                     
+//                     batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
+//                 in 
+//                    batchResponse
+//     in 
+//         result;
+
+DeviceCompliancePolicies = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        result = Request.GetData("secureScoreControlProfile", isCount, schemaOnly, tenants, "v1.0", true, "/v1.0/security/secureScoreControlProfiles", query, schema, metadata)
+        // TODO - Need to validate the select in the base query does not cause a query folding bug 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceCompliancePolicies?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,version", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceCompliancePolicy", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+// DeviceCompliancePolicyStates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+//     let 
+//          result = if(schemaOnly) then 
+//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "deviceCompliancePolicyState", "tenantId = text, deviceId = text")
+//             else
+//                 let
+//                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
+//                     response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
+// 
+//                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+//                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+//                     
+//                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+//                             null
+//                         else
+//                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/deviceCompliancePolicyStates", newQuery)),
+//                     
+//                     batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
+//                 in 
+//                    batchResponse
+//     in 
+//         result;
+
+DeviceConfigurationProfiles = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        // TODO - Need to validate the select in the statement below does not cause a bug with query folding
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceConfigurations?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,supportsScopeTags,deviceManagementApplicabilityRuleOsEdition,deviceManagementApplicabilityRuleOsVersion,deviceManagementApplicabilityRuleDeviceMode,version", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceConfiguration", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+// DeviceConfigurationStates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+//     let 
+//          result = if(schemaOnly) then 
+//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "deviceConfigurationState", "tenantId = text, deviceId = text")
+//             else
+//                 let
+//                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
+//                     response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
+// 
+//                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+//                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+// 
+//                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+//                             null
+//                         else
+//                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/deviceConfigurationStates", newQuery)),
+//                     
+//                     batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
+//                 in 
+//                    batchResponse
+//     in 
+//         result;
+
+DeviceManagementAuditEvents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/auditEvents", {"DeviceManagementApps.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "auditEvent", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+GroupPolicyConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/groupPolicyConfigurations", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "groupPolicyConfiguration", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+ManagedAppPolicies = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/managedAppPolicies", {"DeviceManagementApps.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "managedAppPolicy", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+ManagedDevices = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/managedDevices", {"DeviceManagementManagedDevices.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "managedDevice", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+MobileAppConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/mobileAppConfigurations", {"DeviceManagementApps.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "managedDeviceMobileAppConfiguration", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
+        result;
+
+MobileApps = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        // TODO - Need to validate the select statement below does not cause a bug with query folding
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/mobileApps?$select=id,displayName,lastModifiedDateTime,roleScopeTagIds", {"DeviceManagementApps.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "mobileApp", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
+        result;
+
+RemoteActionAudits = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/remoteActionAudits", {"DeviceManagementManagedDevices.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "remoteActionAudit", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
+        result;
+
+// SecurityBaselineStates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+//     let 
+//          result = if(schemaOnly) then 
+//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "securityBaselineState", "tenantId = text, deviceId = text")
+//             else
+//                 let
+//                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id"),
+//                     response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
+// 
+//                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+//                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+// 
+//                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+//                             null
+//                         else 
+//                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/securityBaselineStates", newQuery)),
+//                     
+//                     batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
+//                 in 
+//                    batchResponse
+//     in 
+//         result;
+
+SubscriptionState = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/subscriptionState", {"DeviceManagementManagedDevices.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementSubscriptionState", schema),
+        result = Request.Execute(operation, request, false, requestSchema)
+    in
+        result;
+
+UserExperienceAnalyticsDevicePerformance = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/userExperienceAnalyticsDevicePerformance", {"DeviceManagementManagedDevices.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "userExperienceAnalyticsDevicePerformance", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+UserExperienceAnalyticsDeviceStartupProcessPerformance = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/userExperienceAnalyticsDeviceStartupProcessPerformance", {"DeviceManagementManagedDevices.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "userExperienceAnalyticsDeviceStartupProcessPerformance", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+WindowsAutopilotDeviceIdentities = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/windowsAutopilotDeviceIdentities", {"DeviceManagementServiceConfig.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "windowsAutopilotDeviceIdentity", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
+        result;
+
+// WindowsProtectionState = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+//     let 
+//          result = if(schemaOnly) then 
+//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsProtectionState", "tenantId = text, deviceId = text")
+//             else
+//                 let
+//                     requests = Request.Build(tenants, "/beta/deviceManagement/managedDevices?$select=id&$filter=(((deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'desktop') or (deviceType eq 'windowsRT') or (deviceType eq 'winEmbedded') or (deviceType eq 'surfaceHub') or (deviceType eq 'windowsPhone') or (deviceType eq 'holoLens')))"),
+//                     response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
+// 
+//                     renamed = Table.RenameColumns(response, {"id", "deviceId"}, MissingField.Ignore),
+//                     newQuery = Request.GetBatchQueryString(query, {"deviceId", "tenantId"}),
+// 
+//                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([deviceId] = null) then 
+//                             null
+//                         else 
+//                             Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/windowsProtectionState", newQuery)),
+//                     
+//                     batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementManagedDevices.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
+//                 in 
+//                    batchResponse
+//     in 
+//         result;
+
+// WindowsUpdateForBusinessConfigurationStates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+//     let 
+//          result = if(schemaOnly) then 
+//                 Schema.GetKnownType(metadata{[Version = "beta"]}[Value], "windowsUpdateState", "tenantId = text, policyId = text")
+//             else
+//                 let
+//                     requests = Request.Build(tenants, "/beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)&$select=id"),
+//                     response = Rest.Feed(requests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), type table [tenantId = text, id = text]),
+// 
+//                     renamed = Table.RenameColumns(response, {"id", "policyId"}, MissingField.Ignore),
+//                     newQuery = Request.GetBatchQueryString(query, {"policyId", "tenantId"}),
+// 
+//                     batchRequests = Table.AddColumn(renamed, "secMgmtInsightsRequest", each if([policyId] = null) then 
+//                             null
+//                         else 
+//                             Request.AppendQuery("/deviceManagement/deviceConfigurations/" & [policyId] & "/microsoft.graph.windowsUpdateForBusinessConfiguration/deviceUpdateStates", newQuery)),
+//                     
+//                     batchResponse = Request.Batch(batchRequests, true, Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, MSGRAPH_SCOPE_PREFIX), schema)
+//                 in 
+//                    batchResponse
+//     in 
+//         result;
+
+WindowsUpdateForBusinessConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        // TODO - Need to validate the filter statement below does not cause a bug with query folding
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "windowsUpdateForBusinessConfiguration", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+// My
+
+MyCustomers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
+
+        request = Request.Build(listOfTenants[id], msgraph_endpoint, "/v1.0/contracts", {"Directory.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "contract", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+MyOrganization = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
+        
+        request = Request.Build(listOfTenants[id], msgraph_endpoint, "/v1.0/organization", {"Directory.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "organization", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+MyResellers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
+
+        request = Request.Build(listOfTenants[id], partnercenter_endpoint, "/v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}), 
+        requestSchema = type table [],
+        result = Request.Execute(operation, request, true, requestSchema)
     in
         result;
 
@@ -875,20 +838,12 @@ shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Mic
 
 NavigationTable = (friendlyName as text, optional tenants as list) as table =>
     let
-        GetMetadata = (version as text) =>
-            let
-                data = Web.Contents(Uri.Combine(graph_endpoint, version & "/$metadata")), 
-                buffered = Binary.Buffer(data), 
-                metadata = Xml.Tables(buffered){0}[DataServices]{0}[#"http://docs.oasis-open.org/odata/ns/edm"]{0}[Schema]
-            in 
-                metadata,
-
         GetNestedNavigationTable = (input as table) as table =>
             let
                 // Select the only column needed from the input for this function
                 selected = Table.SelectColumns(input, {"Name"}),
                 // Add data as a calculated column
-                withData = Table.AddColumn(selected, "Data", each View([Name], metadata, listOfTenants), type table),
+                withData = Table.AddColumn(selected, "Data", each View([Name], listOfTenants), type table),
                 // Add the item name and kind as fixed text values
                 withItemKind = Table.AddColumn(withData, "ItemKind", each "Table", type text),
                 withItemName = Table.AddColumn(withItemKind, "ItemName", each "Table", type text),
@@ -903,18 +858,13 @@ NavigationTable = (friendlyName as text, optional tenants as list) as table =>
                 tenants
             else 
                 let 
-                    contracts = Rest.GetPages(graph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken()),
+                    contracts = Rest.GetPages(msgraph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken()),
                     result = if (Table.HasColumns(contracts, {"customerId"})) then 
                             contracts[customerId]
                         else 
                            error Error.Record("No customers where discovered or specified", "Please verify that you used your partner credentials used to connect or specify a list of customer Azure Active Directory tenant identifiers.")
                 in
                     result,
-
-        metadata = #table({"Version", "Value"}, {
-            { "beta", GetMetadata("beta") },
-            { "v1.0", GetMetadata("v1.0") }
-        }),
 
         // Group the items in the entity table by workload because those will be the folders in our navigation table
         grouped = Table.Group(EntityTable, {"Workload"}, {{"Nested", each _}}),
@@ -936,7 +886,7 @@ NavigationTable = (friendlyName as text, optional tenants as list) as table =>
     in
         navTable;
 
-View = (entity as text, metadata as table, tenants as list) as table =>
+View = (entity as text, tenants as list) as table =>
     let
         // Implementation of Table.View handlers.
         //
@@ -953,7 +903,7 @@ View = (entity as text, metadata as table, tenants as list) as table =>
                 let
                     finalSchema = CalculateSchema(state),
                     finalQueryString = CalculateQueryString(state),
-                    result = GetActionForEntity(entity)(tenants, false, false, finalQueryString, finalSchema),
+                    result = GetActionForEntity(entity)(tenants, OperationType[Request], finalQueryString, finalSchema),
                     appliedType = Table.ChangeType(result, finalSchema)
                 in
                     appliedType,
@@ -972,28 +922,10 @@ View = (entity as text, metadata as table, tenants as list) as table =>
                     let
                         newState = state & [ RowCountOnly = true ],
                         finalQueryString = CalculateQueryString(newState),
-                        value = GetActionForEntity(entity)(tenants, true, false, finalQueryString),
+                        value = GetActionForEntity(entity)(tenants, OperationType[CountyOnly], finalQueryString),
                         converted = Number.FromText(value)
                     in
                         converted,
-
-            // OnTake - handles the Table.FirstN transform, limiting
-            // the maximum number of rows returned in the result set.
-            // The count value should be >= 0.
-            OnTake = (count as number) =>
-                let
-                    value = if(count >= 1000) then 999 else count,
-                    newState = state & [ Top = value ]
-                in
-                    @View(newState),
-
-            // OnSkip - handles the Table.Skip transform.
-            // The count value should be >= 0.
-            OnSkip = (count as number) =>
-                let
-                    newState = state & [ Skip = count ]
-                in
-                    @View(newState),
 
             // OnSelectColumns - handles column selection
             OnSelectColumns = (columns as list) =>
@@ -1014,6 +946,14 @@ View = (entity as text, metadata as table, tenants as list) as table =>
                             Schema = newSchema
                         ]
                     ),
+
+            // OnSkip - handles the Table.Skip transform.
+            // The count value should be >= 0.
+            OnSkip = (count as number) =>
+                let
+                    newState = state & [ Skip = count ]
+                in
+                    @View(newState),
 
             // OnSort - receives a list of records containing two fields: 
             //    [Name]  - the name of the column to sort on
@@ -1039,6 +979,16 @@ View = (entity as text, metadata as table, tenants as list) as table =>
                 in
                     @View(state & [ OrderBy = orderBy ]),
 
+            // OnTake - handles the Table.FirstN transform, limiting
+            // the maximum number of rows returned in the result set.
+            // The count value should be >= 0.
+            OnTake = (count as number) =>
+                let
+                    value = if(count >= 1000) then 999 else count,
+                    newState = state & [ Top = value ]
+                in
+                    @View(newState),
+
             //
             // Helper functions
             //
@@ -1047,7 +997,7 @@ View = (entity as text, metadata as table, tenants as list) as table =>
             // entity name that was passed into the function.
             CalculateSchema = (state) as type =>
                 if (state[Schema]? = null) then
-                    GetActionForEntity(entity)(tenants, false, true, null, null, metadata)
+                    GetActionForEntity(entity)(tenants, OperationType[SchemaOnly])
                 else
                     state[Schema],
 
@@ -1101,58 +1051,6 @@ View = (entity as text, metadata as table, tenants as list) as table =>
 
 // Network
 
-Rest.Feed = (requests as table, isPaged as logical, scope as text, optional schema as type) => 
-    let
-        GetData = (input as record) =>
-            let
-                requestContainsTopQuery = Text.Contains(input[secMgmtInsightsRequest], "top="),
-
-                data = try if(isPaged and not requestContainsTopQuery) then 
-                        Rest.GetPages(input[secMgmtInsightsRequest], GetAccessToken(input[tenantId], scope), schema)
-                    else
-                        Rest.GetContents(input[secMgmtInsightsRequest], GetAccessToken(input[tenantId], scope), isPaged and requestContainsTopQuery, schema),
-
-                response = if(data[HasError]) then 
-                    let
-                        fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
-                        asTable = Table.FromList(fields, Splitter.SplitByNothing()),
-
-                        unpivot = Table.Unpivot(asTable, {"Column1"}, "Attribute", "Value"),
-                        pivot = Table.Pivot(unpivot, List.Distinct(unpivot[Value]), "Value", "Attribute", each error data[Error]),
-
-                        replace = Table.ReplaceErrorValues(pivot, {{"tenantId", input[tenantId]}}), 
-                        value = Table.ToRecords(replace)
-                    in 
-                        value
-                else if (Table.IsEmpty(data[Value])) then 
-                        let
-                            listOfFields = List.RemoveMatchingItems(Record.FieldNames(input), { "secMgmtInsightsRequest" }),
-                            tableFromRecord = Table.FromRecords({input}, listOfFields),
-                            value = Table.ToRecords(tableFromRecord)
-                        in
-                            value
-                else 
-                    let 
-                        base = Table.AddColumn(data[Value], "secMgmtInsightsBase", each input),
-                        listOfFields = List.RemoveMatchingItems(Record.FieldNames(input), { "secMgmtInsightsRequest" }),
-                        expanded = Table.ExpandRecordColumn(base, "secMgmtInsightsBase", listOfFields), 
-                        value = Table.ToRecords(expanded)
-                    in
-                        value
-            in 
-                response,
-
-        data = Table.AddColumn(requests, "Column1", each GetData(_)),
-        buffered = Table.Buffer(data), 
-
-        mergedLists = List.Combine(buffered[Column1]),
-        tableFromList = Table.FromList(mergedLists, Splitter.SplitByNothing(), {"Column1"}),
-        
-        listOfColumns =  List.Union(List.Transform(mergedLists, each Record.FieldNames(_))),
-        expandedRecord = Table.ExpandRecordColumn(tableFromList, "Column1", listOfColumns)
-    in 
-        expandedRecord;
-
 Rest.GetContents = (url as text, token as text, isPaged as logical, optional schema as type) =>
     let 
         response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token),
@@ -1173,7 +1071,7 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
                                 asTable = Table.FromList(document[value], Splitter.SplitByNothing(), {"Column1"}),
                                 fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
                                 expanded = Table.ExpandRecordColumn(asTable, "Column1", fields),
-                                // Remove the tenantId field if exists beacuse it is not found in each response 
+                                // Remove the tenantId field if exists because it is not found in each response 
                                 // and other functions add base data and this value exist in that set.
                                 removed = Table.RemoveColumns(expanded, {"tenantId"}, MissingField.Ignore)
                             in
@@ -1194,14 +1092,18 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
         in
             result;
 
-Rest.GetPages = (url as text, token as text, optional schema as type) => Table.GenerateByPage((previous) => 
+Rest.GetPages = (url as text, token as text, optional schema as type) => 
     let
-        // if previous is null, then this is our first page of data
-        nextLink = if (previous = null) then url else Value.Metadata(previous)[NextLink]?,
-        // if next link was set to null by the previous call, we know we have no more data
-        page = if (nextLink <> null) then Rest.GetContents(nextLink, token, true, schema) else null
-    in
-        page);
+        response = Table.GenerateByPage((previous) => 
+            let
+                // if previous is null, then this is our first page of data
+                nextLink = if (previous = null) then url else Value.Metadata(previous)[NextLink]?,
+                // if next link was set to null by the previous call, we know we have no more data
+                page = if (nextLink <> null) then Rest.GetContents(nextLink, token, true, schema) else null
+            in
+                page)
+    in 
+        response;
 
 Rest.Request = (url as text, accept, token as text, optional content as text) => 
     let
@@ -1236,11 +1138,11 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
     in 
         result;
 
-Rest.Scalar = (requests as table, scope as text) =>
+Rest.Scalar = (requests as table) =>
     let
         GetData = (input as record) =>
             let 
-                response = Rest.Request(input[secMgmtInsightsRequest], "text/plain", GetAccessToken(input[tenantId], scope)),
+                response = Rest.Request(input[secMgmtInsightsRequest], "text/plain", GetAccessToken(input[tenantId], input[scope])),
                 value = Text.FromBinary(response)
             in
                 value,
@@ -1252,91 +1154,502 @@ Rest.Scalar = (requests as table, scope as text) =>
 
 // Office 365 Service Communications
 
-ServiceCurrentStatus = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of status details of Microsoft 365 services for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of status details of Microsoft 365 services for the the specified list of tenants.
+*/
+ServiceCurrentStatus = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        output = if(schemaOnly) then
-                type table [tenantId = text, Id = text, Workload = text, StatusDate = datetime, WorkloadDisplayName = text, Status = text, IncidentIds = any, FeatureGroupStatusCollection = any]  
-            else 
-                let
-                    requests = Request.BuildServiceCommunications(tenants, "/ServiceComms/CurrentStatus"),
-                    data = Rest.Feed(requests, true, Request.GetScopeString({"ServiceHealth.Read"}, O365SC_SCOPE_PREFIX), schema)
-                in 
-                    data
+        request = Request.Build(tenants, manageoffice_endpoint, "ServiceComms/CurrentStatus", {"ServiceHealth.Read"}, query, each manageoffice_endpoint & "api/v1.0/" & [tenantId] & "/ServiceComms/CurrentStatus"), 
+        requestSchema = type table [tenantId = text, Id = text, Workload = text, StatusDate = datetime, WorkloadDisplayName = text, Status = text, IncidentIds = any, FeatureGroupStatusCollection = any],
+        result = Request.Execute(operation, request, true, requestSchema)
     in
-        output;
+        result;
 
-ServiceHistoricalStatus = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of historical status details of Microsoft 365 services for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of historical status details of Microsoft 365 services for the the specified list of tenants.
+*/
+ServiceHistoricalStatus = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        output = if(schemaOnly) then
-                type table [tenantId = text, Id = text, Workload = text, StatusDate = datetime, WorkloadDisplayName = text, Status = text, IncidentIds = any, FeatureGroupStatusCollection = any]
-            else 
-                let
-                    requests = Request.BuildServiceCommunications(tenants, "/ServiceComms/HistoricalStatus"),
-                    data = Rest.Feed(requests, true, Request.GetScopeString({"ServiceHealth.Read"}, O365SC_SCOPE_PREFIX), schema)
-                in 
-                    data
+        request = Request.Build(tenants, manageoffice_endpoint, "ServiceComms/HistoricalStatus", {"ServiceHealth.Read"}, query, each manageoffice_endpoint & "api/v1.0/" & [tenantId] & "/ServiceComms/HistoricalStatus"), 
+        requestSchema = type table [tenantId = text, Id = text, Workload = text, StatusDate = datetime, WorkloadDisplayName = text, Status = text, IncidentIds = any, FeatureGroupStatusCollection = any],
+        result = Request.Execute(operation, request, true, requestSchema)
     in
-        output;
+        result;
 
-ServiceMessages = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of status messages related to Microsoft 365 services for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of status messages related to Microsoft 365 services for the the specified list of tenants.
+*/
+ServiceMessages = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        output = if(schemaOnly) then
-                type table [tenantId = text, Id = text, Name = text, Title = text, StartTime = datetimezone, EndTime = datetimezone, Status = text, Messages = any, LastUpdatedTime = datetimezone, Workload = text, WorkloadDisplayName = text, Feature = text, FeatureDisplayName = text]
-            else 
-                let
-                    requests = Request.BuildServiceCommunications(tenants, "/ServiceComms/Messages"),
-                    data = Rest.Feed(requests, true, Request.GetScopeString({"ServiceHealth.Read"}, O365SC_SCOPE_PREFIX), schema)
-                in 
-                    data
+        request = Request.Build(tenants, manageoffice_endpoint, "ServiceComms/Messages", {"ServiceHealth.Read"}, query, each manageoffice_endpoint & "api/v1.0/" & [tenantId] & "/ServiceComms/Messages"), 
+        requestSchema = type table [tenantId = text, Id = text, Name = text, Title = text, StartTime = datetimezone, EndTime = datetimezone, Status = text, Messages = any, LastUpdatedTime = datetimezone, Workload = text, WorkloadDisplayName = text, Feature = text, FeatureDisplayName = text],
+        result = Request.Execute(operation, request, true, requestSchema)
     in
-        output;
+        result;
 
 // Reporting 
 
-MailboxUsageDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of mailbox usage details for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of mailbox usage details for the the specified list of tenants.
+*/
+MailboxUsageDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        result = Request.GetData("mailboxUsageDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getMailboxUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "beta/reports/getMailboxUsageDetail(period='D30')?$format=application/json", {"Reports.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "mailboxUsageDetail", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-Office365ActivationsUserDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of Office 365 activation user details for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of Office 365 activation user details for the the specified list of tenants.
+*/
+Office365ActivationsUserDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        result = Request.GetData("office365ActivationsUserDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getOffice365ActivationsUserDetail?$format=application/json", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "beta/reports/getOffice365ActivationsUserDetail?$format=application/json", {"Reports.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "office365ActivationsUserDetail", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-Office365ActiveUserDetails = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of Office 365 active user details for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of Office 365 active user details for the the specified list of tenants.
+*/
+Office365ActiveUserDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        result = Request.GetData("office365ActiveUserDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getOffice365ActiveUserDetail(period='D30')?$format=application/json", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "beta/reports/getOffice365ActiveUserDetail(period='D30')?$format=application/json", {"Reports.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "office365ActiveUserDetail", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-Office365ServicesUserCounts = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of Office 365 services user counts for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of Office 365 services user counts for the the specified list of tenants.
+*/
+Office365ServicesUserCounts = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        result = Request.GetData("office365ServicesUserCounts", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getOffice365ServicesUserCounts(period='D30')?$format=application/json", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "beta/reports/getOffice365ServicesUserCounts(period='D30')?$format=application/json", {"Reports.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "office365ServicesUserCounts", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-OneDriveUsageAccountDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of OneDrive usage account details for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of OneDrive usage account details for the the specified list of tenants.
+*/
+OneDriveUsageAccountDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        result = Request.GetData("oneDriveUsageAccountDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getOneDriveUsageAccountDetail(period='D30')?$format=application/json", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "beta/reports/getOneDriveUsageAccountDetail(period='D30')?$format=application/json", {"Reports.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "oneDriveUsageAccountDetail", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-SharePointSiteUsageDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of SharePoint site usage details for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of SharePoint site usage details for the the specified list of tenants.
+*/
+SharePointSiteUsageDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        result = Request.GetData("sharePointSiteUsageDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getSharePointSiteUsageDetail(period='D30')?$format=application/json", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "beta/reports/getSharePointSiteUsageDetail(period='D30')?$format=application/json", {"Reports.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "sharePointSiteUsageDetail", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-TeamsUserActivityUserDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of Teams user activity details for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of Teams user activity details for the the specified list of tenants.
+*/
+TeamsUserActivityUserDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        result = Request.GetData("teamsUserActivityUserDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getTeamsUserActivityUserDetail(period='D30')?$format=application/json", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "beta/reports/getTeamsUserActivityUserDetail(period='D30')?$format=application/json", {"Reports.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "teamsUserActivityUserDetail", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
-YammerActivityUserDetail = (tenants as list, isCount as logical, schemaOnly as logical, optional query as text, optional schema as type, optional metadata as table) =>
+/*
+* Gets a table of Yammer user activity details for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of Yammer user activity details for the the specified list of tenants.
+*/
+YammerActivityUserDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
-        result = Request.GetData("yammerActivityUserDetail", isCount, schemaOnly, Request.GetScopeString({"Reports.Read.All"}, MSGRAPH_SCOPE_PREFIX), tenants, "beta", true, "/beta/reports/getYammerActivityUserDetail(period='D30')?$format=application/json", query, schema, metadata)
+        request = Request.Build(tenants, msgraph_endpoint, "beta/reports/getYammerActivityUserDetail(period='D30')?$format=application/json", {"Reports.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "yammerActivityUserDetail", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in 
+        result;
+
+// Requests
+
+/*
+* Appends the query string to the specified URL.
+*
+* url: The address of the resource being accessed.
+* query: The query string to be appended to the specified URL.
+* 
+* Returns the URL with the query string appended.
+*/
+Request.AppendQuery = (url as text, optional query as text) =>
+    let 
+        result = if(query = null or query = "") then 
+            url
+        else if(Text.Contains(url, "?")) then 
+            url & "&" & Text.AfterDelimiter(query, "?")
+        else 
+            url & "?" & query
+    in 
+        result;
+
+Request.Batch = (requests as table) =>
+    let
+        source = ""
+    in
+        source;
+
+/*
+* Builds a table and populates with requests.
+*
+* tenants: List of tenants used to construct the table of requests.
+* endpoint: The endpoint of the API to be used when contructing the requests.
+* relativeUrl: The relative URL to be used when constructing the requests.
+* scopes: A list of permissions that will be used when accessing the data.
+* query: An optional value that represents the query string parameters to be used when contructing the requests.
+* generator: An optional function used to generate the address for each request.
+*
+* Returns a table that has been populated with requests.
+*/
+Request.Build = (tenants as list, endpoint as text, relativeUrl as text, scopes as list, optional query as text, optional generator as function) => 
+    let
+        scope = Request.GetScopeString(scopes, endpoint),
+
+        result = if(generator = null) then 
+                let 
+                    request = Request.AppendQuery(endpoint & relativeUrl, query),
+                    data = #table({"tenantId", "request", "scope"}, {{tenants, request, scope}}),
+                    expandedList = Table.ExpandListColumn(data, "tenantId")
+                in
+                    expandedList
+            else
+                let
+                    base = #table({"tenantId", "scope"}, {{tenants, scope}}),
+                    expandedList = Table.ExpandListColumn(base, "tenantId"), 
+                    data = Table.AddColumn(expandedList, "request", generator)
+                in
+                    data
+    in 
+        result;
+
+/*
+* Builds a table thhat contains batch requests.
+*
+* input: 
+* endpoint:
+* scope:
+* gennerator:
+*
+* Returns a table that contains batch requests.
+*/
+Request.BuildBatches = (input as table, endpoint as text, scopes as any, generator as function) =>
+    let 
+        base = Table.AddColumn(input, "request", generator),
+
+        // Group the rows by the tenant identifier because each item in a request batch needs to be for the same tenant.
+        grouped = Table.Group(base, {"tenantId"}, {{"requests", each _}}),
+
+        batches = Table.AddColumn(grouped, "content", each Table.GenerateByPage((previous) =>
+            let
+                indexValue = Value.Metadata(previous)[Index]?,
+                index = if(indexValue <> null) then indexValue else 0,
+
+                data = if(index = 0) then Table.FirstN([requests], default_batch_size) else 
+                    let
+                        initialValue = Table.Skip([requests], index), 
+                        newValue = Table.FirstN(initialValue, default_batch_size)
+                    in
+                        if (Table.IsEmpty(newValue)) then null else newValue,
+
+                output = if(data = null) then null else 
+                    let 
+                        addIndexColumn = Table.AddIndexColumn(data, "id", index + 1),
+                        addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET")
+                    in
+                        Table.ToRecords(addMethodColumn)
+            in
+                output meta [Index = index + default_batch_size])),
+
+        parts = Uri.Parts(endpoint),
+        scopeValue = Request.GetScopeString(scopes, Text.Format("#{0}://#{1}/", {parts[Scheme], parts[Host]})),
+
+        withRequest = Table.AddColumn(batches, "request", each endpoint),
+        withScope = Table.AddColumn(withRequest, "scope", each scopeValue),
+        
+        // Remove the requests column that was added grouping the records. This column was only needed for this function.
+        withoutRequests = Table.RemoveColumns(withScope, {"requests"}, MissingField.Ignore)
+    in
+        withoutRequests;
+
+/*
+* Builds the entry to request the schema if not known.
+* 
+* endpoint: The address where the metedata for the schema can be found.
+* resource: Name of the resource type.
+* schemaType: An optional value that represents the known schema.
+*
+* Returns a record use to obtain the schema if unknown; if known then the schema is returned.
+*/
+Request.BuildSchema = (endpoint as text, resource as text, optional schemaType as type) =>
+    let
+        value = if(schemaType <> null) then schemaType else [Endpoint = endpoint, Resource = resource]
+    in 
+        value;
+
+/*
+* Gets the OData metadata for the specified endpoint.
+*
+* endpoint: The base URL for where the metadata is located.
+*
+* Returns a table that contains the metadata for the specified endpoint.
+*/
+Request.GetMetadata = (endpoint as text) =>
+    let
+        data = Web.Contents(endpoint & "/$metadata"), 
+        buffered = Binary.Buffer(data), 
+        metadata = Xml.Tables(buffered){0}[DataServices]{0}[#"http://docs.oasis-open.org/odata/ns/edm"]{0}[Schema]
+    in 
+        metadata;
+
+/*
+* Gets the schema for the specified type.
+*
+* schema: An optional value that represent the response type.
+*
+* Returns the schema for the specified type..
+*/
+Request.GetSchema = (schema as any) =>
+    let
+        result = if(Type.Is(Value.Type(schema), Record.Type)) then 
+                let 
+                    metadata = Request.GetMetadata(schema[Endpoint]),
+                    value = Schema.GetKnownType(metadata, schema[Resource], "tenantId = text")
+                in 
+                    value
+            else 
+                schema
+    in
+        result;
+
+/*
+* Gets the permission scope that will be used when requesting an access token.
+*
+* scopes: A list of scopes that should be included (e.g. Directory.Read.All).
+* scopePrefix: The prefix for the specified scopes (e.g. https://graph.microsoft.com).
+* 
+* Returns the complete permission scope string (e.g. https://graph.microsoft.com/Directory.Read.All).
+*/
+Request.GetScopeString = (scopes as list, optional scopePrefix as text) as text =>
+    let
+        prefix = Value.IfNull(scopePrefix, ""),
+        addPrefix = List.Transform(scopes, each prefix & _),
+        asText = Text.Combine(addPrefix, " ")
+    in
+        asText;
+
+/*
+* Executes the specified request by perform the appropriate HTTP operation.
+*
+* operation: The type of operation to be performed. 
+* requests: The table of requests to be performed.
+* isResponsePaged: A flag indicating whether the response is paged or not.
+* schema: An optional value that represent the response type.
+*
+* Returns the aggregated response for each HTTP operation performed.
+*/
+Request.Execute = (operation as number, requests as table, isResponsePaged as logical, optional schema as any) => 
+    let
+        GetData = (input as record) =>
+            let
+                requestContainsTopQuery = Text.Contains(input[request], "top="),
+
+                data = try if(isResponsePaged and not requestContainsTopQuery) then 
+                        Rest.GetPages(input[request], GetAccessToken(input[tenantId], input[scope]), schema)
+                    else
+                        Rest.GetContents(input[request], GetAccessToken(input[tenantId], input[scope]), isResponsePaged and requestContainsTopQuery, schema),
+
+                response = if(data[HasError]) then 
+                    let
+                        fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
+                        asTable = Table.FromList(fields, Splitter.SplitByNothing()),
+
+                        unpivot = Table.Unpivot(asTable, {"Column1"}, "Attribute", "Value"),
+                        pivot = Table.Pivot(unpivot, List.Distinct(unpivot[Value]), "Value", "Attribute", each error data[Error]),
+
+                        replace = Table.ReplaceErrorValues(pivot, {{"tenantId", input[tenantId]}}), 
+                        value = Table.ToRecords(replace)
+                    in 
+                        value
+                else if (Table.IsEmpty(data[Value])) then 
+                        let
+                            listOfFields = List.RemoveMatchingItems(Record.FieldNames(input), { "request", "scope" }),
+                            tableFromRecord = Table.FromRecords({input}, listOfFields),
+                            value = Table.ToRecords(tableFromRecord)
+                        in
+                            value
+                else 
+                    let 
+                        base = Table.AddColumn(data[Value], "base", each input),
+                        listOfFields = List.RemoveMatchingItems(Record.FieldNames(input), { "request", "scope" }),
+                        expanded = Table.ExpandRecordColumn(base, "base", listOfFields), 
+                        value = Table.ToRecords(expanded)
+                    in
+                        value
+            in 
+                response,
+
+        result = if (operation = OperationType[Count]) then 
+                Rest.Scalar(requests)
+            else if(operation = OperationType[SchemaOnly]) then 
+                Request.GetSchema(schema)
+            else
+                let 
+                    data = Table.AddColumn(requests, "Column1", each GetData(_)),
+                    buffered = Table.Buffer(data), 
+
+                    mergedLists = List.Combine(buffered[Column1]),
+                    tableFromList = Table.FromList(mergedLists, Splitter.SplitByNothing(), {"Column1"}),
+        
+                    listOfColumns =  List.Union(List.Transform(mergedLists, each Record.FieldNames(_))),
+                    expandedRecord = Table.ExpandRecordColumn(tableFromList, "Column1", listOfColumns)
+                in 
+                    expandedRecord
+    in 
+        result;
+
+/*
+* Removes the specified parameter from the query string.
+*
+* field: Name of the parameter to be removed.
+* query: The query string where the parameter should be removed.
+* 
+* Returns the modified query string or null if the passed query string was not specified.
+*/
+Request.RemoveQueryParameter = (field as text, optional query as text) =>
+    let
+        result = if(query = null) then 
+                null
+            else 
+                let
+                    parts = Uri.Parts("http://local.host" & Request.AppendQuery("/doesNotMatter", query)),
+                    removed = Record.RemoveFields(parts[Query], {field}, MissingField.Ignore),
+                    value = Uri.BuildQueryString(removed)
+                in 
+                    value
+    in 
+        result;
+
+/*
+* Updates the specified query string by removing the specified items.
+*
+* field: Name of the parameter to be updated.
+* itemsToRemove: A list of items to be removed from the specified parameter.
+* query: The query string where the parameter should be updated.
+* 
+* Returns the modified query string or null if the passed query string was not specified.
+*/
+Request.UpdateQueryParameter = (field as text, itemsToRemove as list, optional query as text) =>
+    let
+        result = if(query = null) then 
+                null
+            else
+                let
+                    parts = Uri.Parts("http://local.host" & Request.AppendQuery("/doesNotMatter", query)),
+
+                    output = if(Record.HasFields(parts[Query], {field})) then
+                            let
+                                current = Text.Combine(List.RemoveItems(Text.Split(Record.Field(parts[Query], field), ","), itemsToRemove), ","),
+                                removed = Record.RemoveFields(parts[Query], field, MissingField.Ignore),
+                                added = Record.AddField(removed, field, current),
+
+                                result = Uri.BuildQueryString(added)
+                            in 
+                                result
+                        else
+                            query
+                in
+                    output
+    in
         result;
