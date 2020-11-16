@@ -66,7 +66,7 @@ Microsoft365Lighthouse.Type = type function (
     ) 
     as table meta [
         Documentation.Name = Extension.LoadString("DataSourceLabel"),
-        Documentation.LongDescription = Extension.LoadString("DataSourceLabel"),
+        Documentation.LongDescription = Extension.LoadString("DataSourceDescription"),
         Documentation.Icon = Extension.Contents("Connector32.png")
     ];
 
