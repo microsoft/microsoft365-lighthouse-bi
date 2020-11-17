@@ -263,16 +263,8 @@ IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, operation as numbe
 *
 * Returns a table of license details associated with the users for the specified list of tenants.
 */
-
-[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
-shared Microsoft365Lighthouse.LicenseDetails = () =>
-// LicenseDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+LicenseDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        tenants = Rest.GetPages(msgraph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken())[customerId],
-        schema = null,
-        operation = OperationType[Request],
-        query = null,
-
         // TODO - Need to add support for additional fields 'userId = text' needs to be appended to the schema for this request
         requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "licenseDetails", schema),
 
@@ -293,7 +285,7 @@ shared Microsoft365Lighthouse.LicenseDetails = () =>
                 else 
                     Request.AppendQuery("/users/" & [userId] & "/licenseDetails", newQuery)),
 
-        result = Request.Batch(batchRequests, operation, query, requestSchema, {"Directory.Read.All"})
+        result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
     in
         result;
 
@@ -841,8 +833,8 @@ MyResellers = (tenants as list, operation as number, optional query as text, opt
 
 // Navigation 
         
-// [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
-// shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
+[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
+shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
 
 NavigationTable = (friendlyName as text, optional tenants as list) as table =>
     let
@@ -1402,12 +1394,6 @@ Request.AppendQuery = (url as text, optional query as text) =>
     in 
         result;
 
-Request.Batch = (requests as table) =>
-    let
-        source = ""
-    in
-        source;
-
 /*
 * Builds a table and populates with requests.
 *
@@ -1458,7 +1444,10 @@ Request.BuildBatches = (input as table, endpoint as text, scopes as any, generat
         // Group the rows by the tenant identifier because each item in a request batch needs to be for the same tenant.
         grouped = Table.Group(base, {"tenantId"}, {{"requests", each _}}),
 
-        batches = Table.AddColumn(grouped, "content", each Table.GenerateByPage((previous) =>
+        parts = Uri.Parts(endpoint),
+        scopeValue = Request.GetScopeString(scopes, Text.Format("#{0}://#{1}/", {parts[Scheme], parts[Host]})),
+
+        batches = Table.AddColumn(grouped, "value", each Table.GenerateByPage((previous) =>
             let
                 indexValue = Value.Metadata(previous)[Index]?,
                 index = if(indexValue <> null) then indexValue else 0,
@@ -1474,23 +1463,15 @@ Request.BuildBatches = (input as table, endpoint as text, scopes as any, generat
                     let 
                         addIndexColumn = Table.AddIndexColumn(data, "id", index + 1),
                         addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
+                        renameColumn = Table.RenameColumns(addMethodColumn, {"request", "url"}, MissingField.Ignore),
 
-                        result = #table({"id", "requests"}, {{Text.NewGuid(), addMethodColumn}})
+                        result = #table({"tenantId", "endpoint", "scope", "requests"}, {{[tenantId], endpoint, scopeValue, renameColumn}})
                     in
                         result
             in
-                output meta [Index = index + default_batch_size])),
-
-        parts = Uri.Parts(endpoint),
-        scopeValue = Request.GetScopeString(scopes, Text.Format("#{0}://#{1}/", {parts[Scheme], parts[Host]})),
-
-        withRequest = Table.AddColumn(batches, "request", each endpoint),
-        withScope = Table.AddColumn(withRequest, "scope", each scopeValue),
-        
-        // Remove the requests column that was added grouping the records. This column was only needed for this function.
-        withoutRequests = Table.RemoveColumns(withScope, {"requests"}, MissingField.Ignore)
+                output meta [Index = index + default_batch_size]))
     in
-        withoutRequests;
+        Table.Combine(batches[value]);
 
 /*
 * Builds the entry to request the schema if not known.
@@ -1559,7 +1540,7 @@ Request.GetScopeString = (scopes as list, optional scopePrefix as text) as text 
         asText;
 
 /*
-* Executes the specified request by perform the appropriate HTTP operation.
+* Executes the specified request by performing the appropriate HTTP operation.
 *
 * operation: The type of operation to be performed. 
 * requests: The table of requests to be performed.
@@ -1626,6 +1607,91 @@ Request.Execute = (operation as number, requests as table, isResponsePaged as lo
                 in 
                     expandedRecord
     in 
+        result;
+
+/*
+* Executes the specified batch request by performing the appropriate HTTP operation.
+*
+* operation: The type of operation to be performed. 
+* requests: The table of batch requests to be performed.
+* schema: An optional value that represent the response type.
+*
+* Returns the aggregated response for each HTTP operation performed.
+*/
+Request.ExecuteBatch = (operation as number, requests as table, optional schema as any) => 
+    let
+        GetData = (tenantId as text, urlToUse as text, scope as text, input as table) => 
+            let 
+                data = Table.SelectColumns(input, {"id", "url", "method"}, MissingField.Ignore),
+                contents = "{""requests"":" & Text.FromBinary(Json.FromValue(data)) & "}",
+
+                response = Rest.Request(
+                    urlToUse, 
+                    "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", 
+                    GetAccessToken(tenantId, scope), 
+                    Text.Remove(contents, "\")),
+
+                document = Json.Document(response),
+
+                expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
+                expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "body"}),
+
+                changedType = Table.TransformColumnTypes(expandedRecord, {{"id", type number}})
+            in 
+                changedType,
+
+        result = if(operation = OperationType[SchemaOnly]) then 
+                Request.GetSchema(schema)
+            else
+                let 
+                    data = Table.AddColumn(requests, "responses", each GetData([tenantId], [endpoint], [scope], [requests])),
+
+                    withErrors = Table.SelectRowsWithErrors(data),
+                    withoutErrors = Table.RemoveRowsWithErrors(data), 
+
+                    requestTable = Table.Combine(withoutErrors[requests]),
+                    responseTable = Table.Combine(withoutErrors[responses]),
+
+                    join = Table.Join(requestTable, "id", responseTable, "id"), 
+
+                    removed = Table.RemoveColumns(join, {"id", "method", "status", "url"}, MissingField.Ignore),
+
+                    expandedBody = Table.ExpandRecordColumn(removed, "body", {"value"}),
+                    expandedValue = Table.ExpandListColumn(expandedBody, "value"),
+                        
+                    filteredRows = Table.SelectRows(expandedValue, each [value] <> null and [value] <> ""),
+                    listOfColumns =  List.Union(List.Transform(filteredRows[value], each Record.FieldNames(_))),
+                    expanded = Table.ExpandRecordColumn(expandedValue, "value", listOfColumns),
+       
+                    output = if(Table.IsEmpty(withErrors)) then 
+                            expanded 
+                        else 
+                            let 
+                                AddErrorToEachField = (input as record, fields as list) =>
+                                    let
+                                        asTable = Table.FromList(fields, Splitter.SplitByNothing()),
+                                        unpivot = Table.Unpivot(asTable, {"Column1"}, "Attribute", "Value"),
+                                        pivot = Table.Pivot(unpivot, List.Distinct(unpivot[Value]), "Value", "Attribute", each error Record.FieldValues(input){1})
+                                    in 
+                                        pivot,
+
+                                // Resolve the schema so the expected fields will be known.
+                                resolvedSchema = Request.GetSchema(schema),
+
+                                fields = Record.FieldNames(Type.RecordFields(Type.TableRow(resolvedSchema))),
+                                difference = List.Difference(fields, Table.ColumnNames(withErrors)),
+
+                                // Add a new column that contians a table with the expected columns.
+                                data = Table.AddColumn(withErrors, "Column1", each AddErrorToEachField(_, difference)),
+                                // Expand the new column, so the final result will have error value in each column for the given row.
+                                withDataExpanded = Table.ExpandTableColumn(data, "Column1", difference),
+
+                                combined = Table.Combine({expanded, withDataExpanded}, fields)
+                            in 
+                                combined
+                    in
+                        output
+    in
         result;
 
 /*
