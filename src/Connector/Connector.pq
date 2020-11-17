@@ -1140,9 +1140,16 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
         
         result = if(metadata[Response.Status] >= 400) then 
                 let 
-                    message = Text.Format(
-                        "Request failed - status code: #{0} request-id: #{1}", 
-                        {metadata[Response.Status], metadata[Headers][#"request-id"]})
+                    // TODO - Consider returning the full response minus the access token similar to the error handling used in AZPS.
+                    //        Doing this would provide more info in the diagnostics that could be used to better understand what failed.
+                    message = if(Text.Contains(url, partnercenter_endpoint)) then
+                            Text.Format(
+                                "Response: status code #{0} request-id #{1}",
+                                { metadata[Response.Status], metadata[Headers][#"MS-RequestId"] })
+                        else
+                            Text.Format(
+                                "Response: status code #{0} request-id #{1}",
+                                { metadata[Response.Status], metadata[Headers][#"request-id"] })
                 in
                     Diagnostics.Trace(TraceLevel.Error, message, () => buffered, true)
             else 
