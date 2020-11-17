@@ -263,13 +263,21 @@ IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, operation as numbe
 *
 * Returns a table of license details associated with the users for the specified list of tenants.
 */
-LicenseDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+
+[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
+shared Microsoft365Lighthouse.LicenseDetails = () =>
+// LicenseDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
+        tenants = Rest.GetPages(msgraph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken())[customerId],
+        schema = null,
+        operation = OperationType[Request],
+        query = null,
+
         // TODO - Need to add support for additional fields 'userId = text' needs to be appended to the schema for this request
         requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "licenseDetails", schema),
 
         request = Request.Build(tenants, msgraph_endpoint, "v1.0/users?$select=id", {"Directory.Read.All"}),
-        users = Request.Execute(OperationType[Request], request),
+        users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
         renamed = Table.RenameColumns(users, {"id", "userId"}, MissingField.Ignore),
         
         // Ensure the tenantId and userId values are not present in the select portion of query string.
@@ -833,8 +841,8 @@ MyResellers = (tenants as list, operation as number, optional query as text, opt
 
 // Navigation 
         
-[DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
-shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
+// [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
+// shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
 
 NavigationTable = (friendlyName as text, optional tenants as list) as table =>
     let
@@ -1465,9 +1473,11 @@ Request.BuildBatches = (input as table, endpoint as text, scopes as any, generat
                 output = if(data = null) then null else 
                     let 
                         addIndexColumn = Table.AddIndexColumn(data, "id", index + 1),
-                        addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET")
+                        addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
+
+                        result = #table({"id", "requests"}, {{Text.NewGuid(), addMethodColumn}})
                     in
-                        Table.ToRecords(addMethodColumn)
+                        result
             in
                 output meta [Index = index + default_batch_size])),
 
