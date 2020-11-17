@@ -826,7 +826,7 @@ MyResellers = (tenants as list, operation as number, optional query as text, opt
         listOfTenants = Rest.GetPages(msgraph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
 
         request = Request.Build(listOfTenants[id], partnercenter_endpoint, "/v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}), 
-        requestSchema = type table [],
+        requestSchema = type table [tenantId = text, id = text, name = text, relationshipType = text, state = text, mpnId = number, location = text],
         result = Request.Execute(operation, request, true, requestSchema)
     in
         result;
@@ -1060,15 +1060,27 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
                 error Error.Record(document[error][code], document[error][message], document[error][innerError])
             else
                 let
+                    // Determine if the response is paged and returned from a source that supports OData.
+                    dataset = if(isPaged) then 
+                            let 
+                                // Partner Center does not utilize OData. So, paged values will not be available through the 
+                                // value field in the response. The information will be available through the items field.
+                                value = if(Text.StartsWith(url, partnercenter_endpoint)) then document[items] else document[value]
+                            in
+                                value
+                        else
+                            null,
+
+                    // TODO - Add support for paging Partner Center resources
                     nextLink = Record.FieldOrDefault(document, "@odata.nextLink"),
 
                     data = if (isPaged and schema = null) then 
                             Diagnostics.LogFailure(
                                 "Error converting response body. Are the records uniform?",
-                                () => Table.FromRecords(document[value]))
+                                () => Table.FromRecords(dataset))
                         else if(isPaged and schema <> null) then 
                             let
-                                asTable = Table.FromList(document[value], Splitter.SplitByNothing(), {"Column1"}),
+                                asTable = Table.FromList(dataset, Splitter.SplitByNothing(), {"Column1"}),
                                 fields = Record.FieldNames(Type.RecordFields(Type.TableRow(schema))),
                                 expanded = Table.ExpandRecordColumn(asTable, "Column1", fields),
                                 // Remove the tenantId field if exists because it is not found in each response 
