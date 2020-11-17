@@ -266,7 +266,7 @@ IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, operation as numbe
 LicenseDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         // TODO - Need to add support for additional fields 'userId = text' needs to be appended to the schema for this request
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "licenseDetails", schema),
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "licenseDetails", schema, "tenantId = text, userId = text"),
 
         request = Request.Build(tenants, msgraph_endpoint, "v1.0/users?$select=id", {"Directory.Read.All"}),
         users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
@@ -354,6 +354,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "AzureAd", "Devices", Devices },
     { "AzureAd", "Groups", Groups },
     { "AzureAd", "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy },
+    { "AzureAd", "LicenseDetails", LicenseDetails },
     { "AzureAd", "SignIns", SignIns },
     { "AzureAd", "SubscribedSkus", SubscribedSkus },
     { "AzureAd", "Users", Users },
@@ -1479,12 +1480,13 @@ Request.BuildBatches = (input as table, endpoint as text, scopes as any, generat
 * endpoint: The address where the metedata for the schema can be found.
 * resource: Name of the resource type.
 * schemaType: An optional value that represents the known schema.
+* additional: An optional value that represent any additional fields that should be included.
 *
 * Returns a record use to obtain the schema if unknown; if known then the schema is returned.
 */
-Request.BuildSchema = (endpoint as text, resource as text, optional schemaType as type) =>
+Request.BuildSchema = (endpoint as text, resource as text, optional schemaType as type, optional additional as text) =>
     let
-        value = if(schemaType <> null) then schemaType else [Endpoint = endpoint, Resource = resource]
+        value = if(schemaType <> null) then schemaType else [Additional = additional, Endpoint = endpoint, Resource = resource]
     in 
         value;
 
@@ -1515,7 +1517,7 @@ Request.GetSchema = (schema as any) =>
         result = if(Type.Is(Value.Type(schema), Record.Type)) then 
                 let 
                     metadata = Request.GetMetadata(schema[Endpoint]),
-                    value = Schema.GetKnownType(metadata, schema[Resource], "tenantId = text")
+                    value = Schema.GetKnownType(metadata, schema[Resource], if(schema[Additional] <> null) then schema[Additional] else "tenantId = text")
                 in 
                     value
             else 
