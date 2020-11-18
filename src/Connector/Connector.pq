@@ -76,7 +76,7 @@ FinishLogin = (context, callbackUri, state) =>
     let
         parts = Uri.Parts(callbackUri)[Query],
         result = if (Record.HasFields(parts, {"error", "error_description"})) then 
-                    error Error.Record(parts[error], parts[error_description], parts)
+                    error Rest.GetError(parts)
                  else
                     TokenMethod(token_uri, "authorization_code", "code", parts[code])
     in
@@ -136,7 +136,7 @@ TokenMethod = (tokenUri, grantType, tokenField, parameter, optional scope as tex
         ]),
         body = Json.Document(tokenResponse),
         result = if (Record.HasFields(body, {"error", "error_description"})) then 
-                    error Error.Record(body[error], body[error_description], body)
+                    error Rest.GetError(body)
                  else
                     body
     in 
@@ -608,7 +608,6 @@ DetectedMalwareState = (tenants as list, operation as number, optional query as 
 
 DeviceCompliancePolicies = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        // TODO - Need to validate the select in the base query does not cause a query folding bug 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceCompliancePolicies?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,version", {"DeviceManagementConfiguration.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceCompliancePolicy", schema),
         result = Request.Execute(operation, request, true, requestSchema)
@@ -653,7 +652,6 @@ DeviceCompliancePolicyStates = (tenants as list, operation as number, optional q
 
 DeviceConfigurationProfiles = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        // TODO - Need to validate the select in the statement below does not cause a bug with query folding
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceConfigurations?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,supportsScopeTags,deviceManagementApplicabilityRuleOsEdition,deviceManagementApplicabilityRuleOsVersion,deviceManagementApplicabilityRuleDeviceMode,version", {"DeviceManagementConfiguration.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceConfiguration", schema),
         result = Request.Execute(operation, request, true, requestSchema)
@@ -738,7 +736,6 @@ MobileAppConfigurations = (tenants as list, operation as number, optional query 
 
 MobileApps = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        // TODO - Need to validate the select statement below does not cause a bug with query folding
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/mobileApps?$select=id,displayName,lastModifiedDateTime,roleScopeTagIds", {"DeviceManagementApps.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "mobileApp", schema),
         result = Request.Execute(operation, request, true, requestSchema)
@@ -895,7 +892,6 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, operation as num
 
 WindowsUpdateForBusinessConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        // TODO - Need to validate the filter statement below does not cause a bug with query folding
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)", {"DeviceManagementConfiguration.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "windowsUpdateForBusinessConfiguration", schema),
         result = Request.Execute(operation, request, true, requestSchema)
@@ -1176,7 +1172,7 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
         document = Json.Document(response), 
 
         result = if(Record.HasFields(document, {"error"})) then 
-                error Rest.GetError(document[error]) // Error.Record(document[error][code], document[error][message], document[error][innerError])
+                error Rest.GetError(document[error]) 
             else
                 let
                     // Determine if the response is paged and returned from a source that supports OData.
@@ -1223,9 +1219,18 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
         in
             result;
 
+/*
+* Gets the appropriate error record for the given condition.
+*
+* input: The record used to determine the appropriate error.
+*
+* Returns the appropriate error record for the given condition.
+*/
 Rest.GetError = (input as record) =>
     let
-        result = if(Record.HasFields(input, {"message"}) and input[message] = "Request not applicable to target tenant.") then 
+        result = if(Record.HasFields(input, {"error", "error_description"}) and input[error] = "invalid_grant") then 
+                Error.Record("It appears either consent has not been granted or the delegate admin privilege relationship is not valid", input[error_description], input)
+            else if(Record.HasFields(input, {"message"}) and input[message] = "Request not applicable to target tenant.") then 
                 Error.Record("This tenant does not have an entitlement for Microsoft Intune", input[message], input[innerError])
             else 
                 Error.Record(input[code], input[message], input[innerError])
