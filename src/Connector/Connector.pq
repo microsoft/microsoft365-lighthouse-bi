@@ -363,6 +363,8 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "IntelligentSecurity", "SecureScore", SecureScore },
     { "IntelligentSecurity", "SecureScoreControlProfiles", SecureScoreControlProfiles },
 
+    // Microsoft 365 Defender
+
     // Microsoft Endpoint Manager
     { "EndpointManager", "DetectedApps", DetectedApps },
     { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
@@ -390,6 +392,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "My", "MyCustomers", MyCustomers },
     { "My", "MyOrganization", MyOrganization },
     { "My", "MyResellers", MyResellers },
+    { "My", "MyResellersCustomers", MyResellersCustomers },
 
     // Office 365 Service Communications 
     { "ServiceCommunications", "ServiceCurrentStatus", ServiceCurrentStatus },
@@ -502,6 +505,18 @@ SecureScore = (tenants as list, operation as number, optional query as text, opt
 SecureScoreControlProfiles = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "v1.0/security/secureScoreControlProfiles", {"SecurityEvents.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "secureScoreControlProfile", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+// Microsoft 365 Defender 
+
+SecurityIncidents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "api/incidents", {"Incident.Read.All"}, query), 
+        // This requires authentication unlike Microsoft Graph
+        // https://api.security.microsoft.com/api/$metadata
         requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "secureScoreControlProfile", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
@@ -922,6 +937,19 @@ MyResellers = (tenants as list, operation as number, optional query as text, opt
     in
         result;
 
+MyResellersCustomers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
+
+        // /v1/customers?size=0&filter=%7B%22Field%22%3A%22IndirectReseller%22%2C%22Value%22%3A%22484e548c-f5f3-4528-93a9-c16c6373cb59%22%2C%22Operator%22%3A%22starts_with%22%7D HTTP/1.1
+        
+        request = Request.Build(listOfTenants[id], partnercenter_endpoint, "/v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}), 
+        requestSchema = type table [tenantId = text, id = text, name = text, relationshipType = text, state = text, mpnId = number, location = text],
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
 // Navigation 
         
 [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
@@ -1148,7 +1176,7 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
         document = Json.Document(response), 
 
         result = if(Record.HasFields(document, {"error"})) then 
-                error Error.Record(document[error][code], document[error][message], document[error][innerError])
+                error Rest.GetError(document[error]) // Error.Record(document[error][code], document[error][message], document[error][innerError])
             else
                 let
                     // Determine if the response is paged and returned from a source that supports OData.
@@ -1194,6 +1222,15 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
                     data meta [NextLink = nextLink]
         in
             result;
+
+Rest.GetError = (input as record) =>
+    let
+        result = if(Record.HasFields(input, {"message"}) and input[message] = "Request not applicable to target tenant.") then 
+                Error.Record("This tenant does not have an entitlement for Microsoft Intune", input[message], input[innerError])
+            else 
+                Error.Record(input[code], input[message], input[innerError])
+    in
+        result;
 
 Rest.GetPages = (url as text, token as text, optional schema as type) => 
     let
@@ -1716,23 +1753,29 @@ Request.ExecuteBatch = (operation as number, requests as table, optional schema 
     let
         GetData = (tenantId as text, urlToUse as text, scope as text, input as table) => 
             let 
-                data = Table.SelectColumns(input, {"id", "url", "method"}, MissingField.Ignore),
-                contents = "{""requests"":" & Text.FromBinary(Json.FromValue(data)) & "}",
+                result = if (List.IsEmpty(List.RemoveNulls(input[url]))) then 
+                        Table.FromRecords({[id = 1, status = 200, body = null]})
+                    else
+                        let
+                            data = Table.SelectColumns(input, {"id", "url", "method"}, MissingField.Ignore),
+                            contents = "{""requests"":" & Text.FromBinary(Json.FromValue(data)) & "}",
 
-                response = Rest.Request(
-                    urlToUse, 
-                    "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", 
-                    GetAccessToken(tenantId, scope), 
-                    Text.Remove(contents, "\")),
+                            response = Rest.Request(
+                                urlToUse, 
+                                "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", 
+                                GetAccessToken(tenantId, scope), 
+                                Text.Remove(contents, "\")),
 
-                document = Json.Document(response),
+                            document = Json.Document(response),
 
-                expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
-                expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "body"}),
+                            expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
+                            expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "body"}),
 
-                changedType = Table.TransformColumnTypes(expandedRecord, {{"id", type number}})
-            in 
-                changedType,
+                            changedType = Table.TransformColumnTypes(expandedRecord, {{"id", type number}})
+                        in 
+                            changedType
+                in
+                    result,
 
         result = if(operation = OperationType[SchemaOnly]) then 
                 Request.GetSchema(schema)
@@ -1766,7 +1809,15 @@ Request.ExecuteBatch = (operation as number, requests as table, optional schema 
                                     let
                                         asTable = Table.FromList(fields, Splitter.SplitByNothing()),
                                         unpivot = Table.Unpivot(asTable, {"Column1"}, "Attribute", "Value"),
-                                        pivot = Table.Pivot(unpivot, List.Distinct(unpivot[Value]), "Value", "Attribute", each error Record.FieldValues(input){1})
+                                        
+                                        nestedRequests = Record.FieldValues(input){3}, 
+                                        
+                                        pivot = Table.Pivot(
+                                            unpivot, 
+                                            List.Distinct(unpivot[Value]), 
+                                            "Value", 
+                                            "Attribute", 
+                                            each error Record.FieldValues(nestedRequests{0}){2})
                                     in 
                                         pivot,
 
