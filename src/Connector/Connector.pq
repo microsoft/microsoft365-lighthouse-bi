@@ -265,27 +265,38 @@ IdentitySecurityDefaultsEnforcementPolicy = (tenants as list, operation as numbe
 */
 LicenseDetails = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "licenseDetails", schema, "tenantId = text, userId = text"),
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "licenseDetails", schema, "tenantId = text, userId = text"),
 
-        request = Request.Build(tenants, msgraph_endpoint, "v1.0/users?$select=id", {"Directory.Read.All"}),
-        users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-        renamed = Table.RenameColumns(users, {"id", "userId"}, MissingField.Ignore),
-        
-        // Ensure the tenantId and userId values are not present in the select portion of query string.
-        // Since the query string will be ablled to the batch request these values will not present in that dataset.
-        newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "userId"}, query),
+        result = if(operation = OperationType[SchemaOnly]) then 
+                 Request.GetSchema(requestSchema)
+            else
+                let
+                    request = Request.Build(
+                        tenants, 
+                        msgraph_endpoint, 
+                        "v1.0/users?$select=id",
+                        {"Directory.Read.All"}),
 
-        batchRequests = Request.BuildBatches(
-            renamed, 
-            "https://graph.microsoft.com/v1.0/$batch",
-            {"Directory.Read.All"}, 
-            each if([userId] = null) then 
-                    null
-                else 
-                    Request.AppendQuery("/users/" & [userId] & "/licenseDetails", newQuery)),
+                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(users, {"id", "userId"}, MissingField.Ignore),
 
-        result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
-    in
+                    // Ensure the tenantId and userId values are not present in the select portion of query string.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
+                    newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "userId"}, query),
+
+                    batchRequests = Request.BuildBatches(
+                        renamed, 
+                        msgraph_endpoint & "v1.0/$batch",
+                        {"Directory.Read.All"}, 
+                        each if([userId] = null) then 
+                                null
+                            else 
+                                Request.AppendQuery("/users/" & [userId] & "/licenseDetails", newQuery)),
+
+                     result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
+                in
+                    result
+    in 
         result;
 
 /*
@@ -357,6 +368,9 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "AzureAd", "SignIns", SignIns },
     { "AzureAd", "SubscribedSkus", SubscribedSkus },
     { "AzureAd", "Users", Users },
+
+    // Information Protection
+    { "InformationProtection", "InformationProtectionLabels", InformationProtectionLabels },
 
     // Intelligent Security Graph
     { "IntelligentSecurity", "Alerts", Alerts },
@@ -453,6 +467,54 @@ Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 // Helper 
 
 Value.IfNull = (a, b) => if a <> null then a else b;
+
+// Information Protection
+
+/*
+* Gets a table of Information Protection labels for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of Information Protection labels for the specified list of tenants.
+*/
+InformationProtectionLabels = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "informationProtectionLabel", schema, "tenantId = text, userId = text"),
+
+        result = if(operation = OperationType[SchemaOnly]) then 
+                 Request.GetSchema(requestSchema)
+            else
+                let
+                    request = Request.Build(
+                        tenants, 
+                        msgraph_endpoint, 
+                        "v1.0/users?$select=id",
+                        {"Directory.Read.All"}),
+
+                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(users, {"id", "userId"}, MissingField.Ignore),
+
+                    // Ensure the tenantId and userId values are not present in the select portion of query string.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
+                    newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "userId"}, query),
+
+                    batchRequests = Request.BuildBatches(
+                        renamed, 
+                        msgraph_endpoint & "beta/$batch",
+                        {"InformationProtectionPolicy.Read"}, 
+                        each if([userId] = null) then 
+                                null
+                            else 
+                                Request.AppendQuery("/users/" & [userId] & "/informationProtection/policy/labels", newQuery)),
+
+                     result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
+                in
+                    result
+    in 
+        result;
 
 // Intelligent Security Graph
 
@@ -552,7 +614,7 @@ DetectedApps = (tenants as list, operation as number, optional query as text, op
                     renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
-                    // Since the query string will be ablled to the batch request these values will not present in that dataset.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
                     newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "deviceId"}, query),
 
                     batchRequests = Request.BuildBatches(
@@ -588,7 +650,7 @@ DetectedMalwareState = (tenants as list, operation as number, optional query as 
                     renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
-                    // Since the query string will be ablled to the batch request these values will not present in that dataset.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
                     newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "deviceId"}, query),
 
                     batchRequests = Request.BuildBatches(
@@ -632,7 +694,7 @@ DeviceCompliancePolicyStates = (tenants as list, operation as number, optional q
                     renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
-                    // Since the query string will be ablled to the batch request these values will not present in that dataset.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
                     newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "deviceId"}, query),
 
                     batchRequests = Request.BuildBatches(
@@ -676,7 +738,7 @@ DeviceConfigurationStates = (tenants as list, operation as number, optional quer
                     renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
-                    // Since the query string will be ablled to the batch request these values will not present in that dataset.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
                     newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "deviceId"}, query),
 
                     batchRequests = Request.BuildBatches(
@@ -768,7 +830,7 @@ SecurityBaselineStates = (tenants as list, operation as number, optional query a
                     renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
-                    // Since the query string will be ablled to the batch request these values will not present in that dataset.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
                     newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "deviceId"}, query),
 
                     batchRequests = Request.BuildBatches(
@@ -836,7 +898,7 @@ WindowsProtectionState = (tenants as list, operation as number, optional query a
                     renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
-                    // Since the query string will be ablled to the batch request these values will not present in that dataset.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
                     newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "deviceId"}, query),
 
                     batchRequests = Request.BuildBatches(
@@ -872,7 +934,7 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, operation as num
                     renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
-                    // Since the query string will be ablled to the batch request these values will not present in that dataset.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
                     newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "deviceId"}, query),
 
                     batchRequests = Request.BuildBatches(
@@ -1613,7 +1675,7 @@ Request.BuildBatches = (input as table, endpoint as text, scopes as any, generat
 
                 output = if(data = null) then null else 
                     let 
-                        addIndexColumn = Table.AddIndexColumn(data, "id", index + 1),
+                        addIndexColumn = Table.AddColumn(data, "id", each Binary.ToText(Text.ToBinary([request]))),
                         addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
                         renameColumn = Table.RenameColumns(addMethodColumn, {"request", "url"}, MissingField.Ignore),
 
@@ -1776,7 +1838,7 @@ Request.ExecuteBatch = (operation as number, requests as table, optional schema 
         GetData = (tenantId as text, urlToUse as text, scope as text, input as table) => 
             let 
                 result = if (List.IsEmpty(List.RemoveNulls(input[url]))) then 
-                        Table.FromRecords({[id = 1, status = 200, body = null]})
+                        Table.FromRecords({[id = Text.NewGuid, status = 200, body = null]})
                     else
                         let
                             data = Table.SelectColumns(input, {"id", "url", "method"}, MissingField.Ignore),
@@ -1791,11 +1853,9 @@ Request.ExecuteBatch = (operation as number, requests as table, optional schema 
                             document = Json.Document(response),
 
                             expandedList = Table.FromList(document[responses], Splitter.SplitByNothing(), null, null, ExtraValues.Error), 
-                            expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "body"}),
-
-                            changedType = Table.TransformColumnTypes(expandedRecord, {{"id", type number}})
+                            expandedRecord = Table.ExpandRecordColumn(expandedList, "Column1", {"id", "status", "body"})
                         in 
-                            changedType
+                            expandedRecord
                 in
                     result,
 
