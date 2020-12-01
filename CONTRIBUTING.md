@@ -1,4 +1,4 @@
-# Microsoft 365 Lighthouse Business Intelligence Contributor's Guide
+# Contributor's Guide
 
 Below is our guidance for how to report issues, propose new features, and submit contributions via pull requests (PRs).
 
