@@ -1,33 +1,15 @@
-# Project
+# Microsoft 365 Lighthouse Business Intelligence
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+Through this solution partners are able to consume responses from various Microsoft APIs that have been invoked against their customers in Power BI. Which will enable the ability to gain insights into the current configurations for their customer's Microsoft 365 estate. Also, the functionality required to perform pre-sales assessments will be available.
 
-As the maintainer of this project, please make a few updates:
+## Preview
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
+We are excited to share an early preview of this data connector for Power BI. During the time there will be a handful of actions that you will need to perform manually to get started.
 
-## Contributing
+### Getting started
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+Perform the following to install the data connector
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
-
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
-
-## Trademarks
-
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+1. Download the latest preview of this data connector for Power BI from [here](https://aka.ms/microsoft365/lighthouse-bi/latest-preview)
+2. Copy the extension file into the `[Documents]\Power BI Desktop\Custom Connectors` directory
+3. Open Power BI Desktop
