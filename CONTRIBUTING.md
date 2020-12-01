@@ -68,7 +68,7 @@ Once you've discussed your proposed feature/fix/etc. with a team member, and you
 3. Create & push a feature branch
 4. Create a [Draft Pull Request (PR)](https://github.blog/2019-02-14-introducing-draft-pull-requests/)
 5. Work on your changes
-6. Build and see if it works. Consult [how to build](./doc/building.md) if you have problems.
+6. Build and see if it works. Consult [how to build](./docs/building.md) if you have problems.
 
 ### Code Review
 
