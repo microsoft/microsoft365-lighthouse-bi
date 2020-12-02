@@ -388,10 +388,11 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "DeviceConfigurationStates", DeviceConfigurationStates },
     { "EndpointManager", "DeviceManagementAuditEvents", DeviceManagementAuditEvents },
     { "EndpointManager", "GroupPolicyConfigurations", GroupPolicyConfigurations },
+    { "EndpointManager", "ManagedAppPolicies", ManagedAppPolicies },
+    { "EndpointManager", "ManagedAppStatuses", ManagedAppStatuses },
     { "EndpointManager", "ManagedDevices", ManagedDevices },
     { "EndpointManager", "MobileAppConfigurations", MobileAppConfigurations },
     { "EndpointManager", "MobileApps", MobileApps },
-    { "EndpointManager", "ManagedAppPolicies", ManagedAppPolicies },
     { "EndpointManager", "RemoteActionAudits", RemoteActionAudits },
     { "EndpointManager", "SecurityBaselineStates", SecurityBaselineStates },
     { "EndpointManager", "SubscriptionState", SubscriptionState },
@@ -776,6 +777,14 @@ ManagedAppPolicies = (tenants as list, operation as number, optional query as te
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/managedAppPolicies", {"DeviceManagementApps.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "managedAppPolicy", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+ManagedAppStatuses = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/managedAppStatuses", {"DeviceManagementApps.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "managedAppStatus", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
         result;
@@ -1292,21 +1301,6 @@ Rest.GetError = (input as record) =>
     let
         result = if(Record.HasFields(input, {"error", "error_description"}) and input[error] = "invalid_grant") then 
                 Error.Record("It appears either consent has not been granted or the delegate admin privilege relationship is not valid", input[error_description], input)
-            // TODO 
-            // Determine if the following should parse the message and extract the final decision for there
-            //
-//                 {
-//                     "error": {
-//                         "code": "UnknownError",
-//                         "message": "{\"error\":{\"code\":\"UnknownTenantId\",\"message\":\"We do not recognize this tenant ID 0cb192f6-991c-4f3a-b4f6-de85580544cf. Please double-check the tenant ID and try again.\"}}",
-//                         "innerError": {
-//                             "date": "2020-11-18T20:08:42",
-//                             "request-id": "73f3c5b6-655c-4c29-93f8-5dbab03087c9",
-//                             "client-request-id": "01432df7-dd7b-2f1a-2e18-468f1efce581"
-//                         }
-//                     }
-//                 }
-
             else if (Record.HasFields(input, {"code"}) and input[code] = "UnknownError") then 
                 Error.Record("This tenant might not have an active Microsoft 365 subscription", input[message], input[innerError])
             else if(Record.HasFields(input, {"message"}) and input[message] = "Request not applicable to target tenant.") then 
