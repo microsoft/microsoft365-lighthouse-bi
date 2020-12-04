@@ -2,6 +2,8 @@
 
 // Global variables
 
+[Version = "0.5.0"]
+
 authorize_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize";
 client_id = Text.FromBinary(Extension.Contents("client_id"));
 logout_uri = "https://login.microsoftonline.com/logout.srf";
@@ -40,7 +42,7 @@ Microsoft365Lighthouse = [
 
 Microsoft365Lighthouse.Publish = [
     Beta = true,
-    Category = "Other",
+    Category = "Online Services",
     ButtonText = { Extension.LoadString("ButtonTitle"), Extension.LoadString("ButtonHelp") },
     LearnMoreUrl = "https://github.com/microsoft/microsoft365-lighthouse-bi",
     SourceImage = Microsoft365Lighthouse.Icons,
@@ -1085,18 +1087,18 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, operation as num
                         "beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)&$select=id",
                         {"DeviceManagementConfiguration.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "policyId"}, MissingField.Ignore),
 
-                    // Ensure the tenantId and deviceId values are not present in the select portion of query string.
+                    // Ensure the tenantId and policyId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
-                    newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "deviceId"}, query),
+                    newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "policyId"}, query),
 
                     batchRequests = Request.BuildBatches(
                         renamed, 
                         msgraph_endpoint & "beta/$batch",
                         {"DeviceManagementConfiguration.Read.All"}, 
-                        each if([deviceId] = null) then 
+                        each if([policyId] = null) then 
                                 null
                             else 
                                 Request.AppendQuery("/deviceManagement/deviceConfigurations/" & [policyId] & "/microsoft.graph.windowsUpdateForBusinessConfiguration/deviceUpdateStates", newQuery)),
