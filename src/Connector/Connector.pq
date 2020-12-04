@@ -388,7 +388,8 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
     { "EndpointManager", "DeviceConfigurationStates", DeviceConfigurationStates },
     { "EndpointManager", "DeviceManagementAuditEvents", DeviceManagementAuditEvents },
-    { "EndpointManager", "FirewallPolicies", FirewallPolicies },
+    { "EndpointManager", "DeviceManagementIntents", DeviceManagementIntents },
+    { "EndpointManager", "DeviceManagementIntentSettings", DeviceManagementIntentSettings },
     { "EndpointManager", "GroupPolicyConfigurations", GroupPolicyConfigurations },
     { "EndpointManager", "ManagedAppPolicies", ManagedAppPolicies },
     { "EndpointManager", "ManagedAppStatuses", ManagedAppStatuses },
@@ -617,8 +618,8 @@ DetectedApps = (tenants as list, operation as number, optional query as text, op
                         "beta/deviceManagement/managedDevices?$select=id&$filter=operatingSystem eq 'Windows'",
                         {"DeviceManagementManagedDevices.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
@@ -741,8 +742,8 @@ DeviceConfigurationStates = (tenants as list, operation as number, optional quer
                         "beta/deviceManagement/managedDevices?$select=id",
                         {"DeviceManagementManagedDevices.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
@@ -763,26 +764,56 @@ DeviceConfigurationStates = (tenants as list, operation as number, optional quer
     in 
         result;
 
-FirewallPolicies = (tenants as list, operation as number, optional query as text, optional schema as type) =>
-    let 
-        request = Request.Build(
-            tenants, 
-            msgraph_endpoint, 
-            "beta/deviceManagement/intents?$filter=templateId%20eq%20%27c53e5a9f-2eec-4175-98a1-2b3d38084b91%27%20or%20templateId%20eq%20%274356d05c-a4ab-4a07-9ece-739f7c792910%27%20or%20templateId%20eq%20%275340aa10-47a8-4e67-893f-690984e4d5da%27", 
-            {"DeviceManagementConfiguration.Read.All"}, 
-            query), 
-
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementIntent", schema),
-        result = Request.Execute(operation, request, true, requestSchema)
-    in
-        result;
-
 DeviceManagementAuditEvents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/auditEvents", {"DeviceManagementApps.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "auditEvent", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
+        result;
+
+DeviceManagementIntents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/intents", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementIntent", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+DeviceManagementIntentSettings = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementSettingInstance", schema, "tenantId = text, intentId = text"),
+
+        result = if(operation = OperationType[SchemaOnly]) then 
+                 Request.GetSchema(requestSchema)
+            else
+                let
+                    request = Request.Build(
+                        tenants, 
+                        msgraph_endpoint, 
+                        "beta/deviceManagement/intents?$select=id",
+                        {"DeviceManagementConfiguration.Read.All"}),
+
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "intentId"}, MissingField.Ignore),
+
+                    // Ensure the tenantId and intentId values are not present in the select portion of query string.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
+                    newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "intentId"}, query),
+
+                    batchRequests = Request.BuildBatches(
+                        renamed, 
+                        msgraph_endpoint & "beta/$batch",
+                        {"DeviceManagementConfiguration.Read.All"}, 
+                        each if([intentId] = null) then 
+                                null
+                            else 
+                                Request.AppendQuery("/deviceManagement/intents/" & [intentId] & "/settings", newQuery)),
+
+                     result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
+                in
+                    result
+    in 
         result;
 
 GroupPolicyConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
@@ -896,7 +927,6 @@ SecurityBaselineTemplateSettingCategories = (tenants as list, operation as numbe
                     request = Request.Build(
                         tenants, 
                         msgraph_endpoint, 
-                        // TODO -- Determine if the filtering should be removed here
                         "beta/deviceManagement/templates?$filter=(isof(%27microsoft.graph.securityBaselineTemplate%27))&$select=id",
                         {"DeviceManagementConfiguration.Read.All"}),
 
