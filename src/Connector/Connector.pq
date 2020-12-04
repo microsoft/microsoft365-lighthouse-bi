@@ -13,7 +13,6 @@ default_batch_size = 5;
 msgraph_endpoint = "https://graph.microsoft.com/";
 manageoffice_endpoint = "https://manage.office.com/";
 partnercenter_endpoint = "https://api.partnercenter.microsoft.com/";
-security_endpoint = "https://api.security.microsoft.com";
 
 // Control variables
 
@@ -378,8 +377,6 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "IntelligentSecurity", "SecureScore", SecureScore },
     { "IntelligentSecurity", "SecureScoreControlProfiles", SecureScoreControlProfiles },
 
-    // Microsoft 365 Defender
-
     // Microsoft Endpoint Manager
     { "EndpointManager", "DetectedApps", DetectedApps },
     { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
@@ -576,20 +573,6 @@ SecureScore = (tenants as list, operation as number, optional query as text, opt
 SecureScoreControlProfiles = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "v1.0/security/secureScoreControlProfiles", {"SecurityEvents.Read.All"}, query), 
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "secureScoreControlProfile", schema),
-        result = Request.Execute(operation, request, true, requestSchema)
-    in
-        result;
-
-// Microsoft 365 Defender 
-
-// TODO - The following function is a work in progress. The values are not correct and need to be updated.
-
-SecurityIncidents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
-    let 
-        request = Request.Build(tenants, security_endpoint, "api/incidents", {"Incident.Read.All"}, query), 
-        // This requires authentication unlike Microsoft Graph
-        // https://api.security.microsoft.com/api/$metadata
         requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "secureScoreControlProfile", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
