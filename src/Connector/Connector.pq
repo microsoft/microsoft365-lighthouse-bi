@@ -405,6 +405,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "SubscriptionState", SubscriptionState },
     { "EndpointManager", "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance },
     { "EndpointManager", "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
+    { "EndpointManager", "UserExperienceAnalyticsOverview", UserExperienceAnalyticsOverview },
     { "EndpointManager", "WindowsProtectionState", WindowsProtectionState },
     { "EndpointManager", "WindowsAutopilotDeviceIdentities", WindowsAutopilotDeviceIdentities },
     { "EndpointManager", "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
@@ -1031,6 +1032,14 @@ UserExperienceAnalyticsDeviceStartupProcessPerformance = (tenants as list, opera
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/userExperienceAnalyticsDeviceStartupProcessPerformance", {"DeviceManagementManagedDevices.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "userExperienceAnalyticsDeviceStartupProcessPerformance", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+UserExperienceAnalyticsOverview = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/userExperienceAnalyticsOverview", {"DeviceManagementManagedDevices.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "userExperienceAnalyticsOverview", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
         result;
