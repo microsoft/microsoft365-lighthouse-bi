@@ -407,8 +407,8 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "UserExperienceAnalyticsOverview", UserExperienceAnalyticsOverview },
     { "EndpointManager", "WindowsProtectionState", WindowsProtectionState },
     { "EndpointManager", "WindowsAutopilotDeviceIdentities", WindowsAutopilotDeviceIdentities },
-    { "EndpointManager", "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
     { "EndpointManager", "WindowsUpdateForBusinessConfigurations", WindowsUpdateForBusinessConfigurations },
+    { "EndpointManager", "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
 
     // My 
     { "My", "MyCustomers", MyCustomers },
@@ -1073,6 +1073,14 @@ WindowsProtectionState = (tenants as list, operation as number, optional query a
     in 
         result;
 
+WindowsUpdateForBusinessConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "windowsUpdateForBusinessConfiguration", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
 WindowsUpdateForBusinessConfigurationStates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "windowsUpdateState", schema, "tenantId = text, policyId = text"),
@@ -1107,14 +1115,6 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, operation as num
                 in
                     result
     in 
-        result;
-
-WindowsUpdateForBusinessConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
-    let 
-        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceConfigurations?$filter=isof(%27microsoft.graph.windowsUpdateForBusinessConfiguration%27)", {"DeviceManagementConfiguration.Read.All"}, query), 
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "windowsUpdateForBusinessConfiguration", schema),
-        result = Request.Execute(operation, request, true, requestSchema)
-    in
         result;
 
 // My
@@ -1166,20 +1166,19 @@ MyResellersCustomers = (tenants as list, operation as number, optional query as 
                     request = Request.Build(listOfTenants[id], partnercenter_endpoint, "v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}),
                     resellers = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
                     
-                    renamed = Table.RenameColumns(resellers, {"id", "resellerId"}, MissingField.Ignore),
+                    idRenamed = Table.RenameColumns(resellers, {"id", "resellerId"}, MissingField.Ignore),
 
-                    // TODO - Need to figure out how we can keep the based available in the renamed table. Since we are passing a list of tenants into the function
-                    //        We are basically breaking out functionality 
-                    batchRequests = Request.Build(
-                        listOfTenants[id], 
-                        partnercenter_endpoint,
-                        {"user_impersonation"}, 
-                        each if([resellerId] = null) then 
-                                null
-                            else 
-                                partnercenter_endpoint & "v1/customers?size=0&filter=%7B%22Field%22%3A%22IndirectReseller%22%2C%22Value%22%3A%22" & [resellerId] & "%22%2C%22Operator%22%3A%22starts_with%22%7D"),
+                    appendScope = Table.AddColumn(
+                        idRenamed, 
+                        "scope", 
+                        each Request.GetScopeString({"user_impersonation"}, partnercenter_endpoint)),
 
-                        result = Request.ExecuteBatch(operation, batchRequests, true,  requestSchema)
+                    appendRequest = Table.AddColumn(
+                        appendScope,
+                        "request",
+                        each partnercenter_endpoint & "v1/customers?size=0&filter=%7B%22Field%22%3A%22IndirectReseller%22%2C%22Value%22%3A%22" & [resellerId] & "%22%2C%22Operator%22%3A%22starts_with%22%7D"),
+
+                    result = Request.Execute(OperationType[Request], appendRequest, true, requestSchema)
                  in 
                      result
     in 
