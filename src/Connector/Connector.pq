@@ -13,6 +13,7 @@ default_batch_size = 5;
 msgraph_endpoint = "https://graph.microsoft.com/";
 manageoffice_endpoint = "https://manage.office.com/";
 partnercenter_endpoint = "https://api.partnercenter.microsoft.com/";
+security_endpoint = "https://api.security.microsoft.com";
 
 // Control variables
 
@@ -387,6 +388,9 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
     { "EndpointManager", "DeviceConfigurationStates", DeviceConfigurationStates },
     { "EndpointManager", "DeviceManagementAuditEvents", DeviceManagementAuditEvents },
+    { "EndpointManager", "DeviceManagementIntents", DeviceManagementIntents },
+    { "EndpointManager", "DeviceManagementIntentSettings", DeviceManagementIntentSettings },
+    { "EndpointManager", "DeviceManagementSettingDefinition", DeviceManagementSettingDefinition },
     { "EndpointManager", "GroupPolicyConfigurations", GroupPolicyConfigurations },
     { "EndpointManager", "ManagedAppPolicies", ManagedAppPolicies },
     { "EndpointManager", "ManagedAppStatuses", ManagedAppStatuses },
@@ -395,6 +399,9 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "MobileApps", MobileApps },
     { "EndpointManager", "RemoteActionAudits", RemoteActionAudits },
     { "EndpointManager", "SecurityBaselineStates", SecurityBaselineStates },
+    { "EndpointManager", "SecurityBaselineTemplateRecommendedSettings", SecurityBaselineTemplateRecommendedSettings },
+    { "EndpointManager", "SecurityBaselineTemplates", SecurityBaselineTemplates },
+    { "EndpointManager", "SecurityBaselineTemplateSettingCategories", SecurityBaselineTemplateSettingCategories },
     { "EndpointManager", "SubscriptionState", SubscriptionState },
     { "EndpointManager", "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance },
     { "EndpointManager", "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
@@ -575,9 +582,11 @@ SecureScoreControlProfiles = (tenants as list, operation as number, optional que
 
 // Microsoft 365 Defender 
 
+// TODO - The following function is a work in progress. The values are not correct and need to be updated.
+
 SecurityIncidents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        request = Request.Build(tenants, msgraph_endpoint, "api/incidents", {"Incident.Read.All"}, query), 
+        request = Request.Build(tenants, security_endpoint, "api/incidents", {"Incident.Read.All"}, query), 
         // This requires authentication unlike Microsoft Graph
         // https://api.security.microsoft.com/api/$metadata
         requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "secureScoreControlProfile", schema),
@@ -611,8 +620,8 @@ DetectedApps = (tenants as list, operation as number, optional query as text, op
                         "beta/deviceManagement/managedDevices?$select=id&$filter=operatingSystem eq 'Windows'",
                         {"DeviceManagementManagedDevices.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
@@ -735,8 +744,8 @@ DeviceConfigurationStates = (tenants as list, operation as number, optional quer
                         "beta/deviceManagement/managedDevices?$select=id",
                         {"DeviceManagementManagedDevices.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
@@ -761,6 +770,58 @@ DeviceManagementAuditEvents = (tenants as list, operation as number, optional qu
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/auditEvents", {"DeviceManagementApps.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "auditEvent", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+DeviceManagementIntents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/intents", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementIntent", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+DeviceManagementIntentSettings = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementSettingInstance", schema, "tenantId = text, intentId = text"),
+
+        result = if(operation = OperationType[SchemaOnly]) then 
+                 Request.GetSchema(requestSchema)
+            else
+                let
+                    request = Request.Build(
+                        tenants, 
+                        msgraph_endpoint, 
+                        "beta/deviceManagement/intents?$select=id",
+                        {"DeviceManagementConfiguration.Read.All"}),
+
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "intentId"}, MissingField.Ignore),
+
+                    // Ensure the tenantId and intentId values are not present in the select portion of query string.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
+                    newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "intentId"}, query),
+
+                    batchRequests = Request.BuildBatches(
+                        renamed, 
+                        msgraph_endpoint & "beta/$batch",
+                        {"DeviceManagementConfiguration.Read.All"}, 
+                        each if([intentId] = null) then 
+                                null
+                            else 
+                                Request.AppendQuery("/deviceManagement/intents/" & [intentId] & "/settings", newQuery)),
+
+                     result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
+                in
+                    result
+    in 
+        result;
+
+DeviceManagementSettingDefinition = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/settingDefinitions", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementSettingDefinition", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
         result;
@@ -835,8 +896,8 @@ SecurityBaselineStates = (tenants as list, operation as number, optional query a
                         "beta/deviceManagement/managedDevices?$select=id",
                         {"DeviceManagementManagedDevices.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
@@ -850,6 +911,99 @@ SecurityBaselineStates = (tenants as list, operation as number, optional query a
                                 null
                             else 
                                 Request.AppendQuery("/deviceManagement/managedDevices/" & [deviceId] & "/securityBaselineStates", newQuery)),
+
+                     result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
+                in
+                    result
+    in 
+        result;
+
+SecurityBaselineTemplateRecommendedSettings = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementSettingInstance", schema, "tenantId = text, templateId = text, categoryId = text"),
+
+        result = if(operation = OperationType[SchemaOnly]) then 
+                 Request.GetSchema(requestSchema)
+            else
+                let
+                    requests = Request.Build(
+                        tenants, 
+                        msgraph_endpoint, 
+                        "beta/deviceManagement/templates?$filter=(isof(%27microsoft.graph.securityBaselineTemplate%27))&$select=id",
+                        {"DeviceManagementConfiguration.Read.All"}),
+
+                    templates = Request.Execute(OperationType[Request], requests, true, type table[tenantId = text, id = text]),
+                    idRenamed = Table.RenameColumns(templates, {"id", "templateId"}, MissingField.Ignore),
+
+                    appendScope = Table.AddColumn(
+                        idRenamed, 
+                        "scope", 
+                        each Request.GetScopeString({"DeviceManagementConfiguration.Read.All"}, msgraph_endpoint)),
+
+                    appendRequest = Table.AddColumn(
+                        appendScope,
+                        "request",
+                        each msgraph_endpoint & "beta/deviceManagement/templates/" & [templateId] & "/categories?$select=id"),
+
+                    categories = Request.Execute(OperationType[Request], appendRequest, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(categories, {"id", "categoryId"}, MissingField.Ignore),
+
+                    // Ensure the tenantId, categoryId, and templateId values are not present in the select portion of query string.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
+                    newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "categoryId", "templateId"}, query),
+
+                    batchRequests = Request.BuildBatches(
+                        renamed, 
+                        msgraph_endpoint & "beta/$batch",
+                        {"DeviceManagementConfiguration.Read.All"}, 
+                        each if([templateId] = null) then 
+                                null
+                            else 
+                                Request.AppendQuery("/deviceManagement/templates/" & [templateId] & "/categories/" & [categoryId] & "/RecommendedSettings", newQuery)),
+
+                     result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
+                in
+                    result
+    in 
+        result;
+
+SecurityBaselineTemplates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/templates?$filter=(isof(%27microsoft.graph.securityBaselineTemplate%27))", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "securityBaselineTemplate", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+SecurityBaselineTemplateSettingCategories = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementTemplateSettingCategory", schema, "tenantId = text, templateId = text"),
+
+        result = if(operation = OperationType[SchemaOnly]) then 
+                 Request.GetSchema(requestSchema)
+            else
+                let
+                    request = Request.Build(
+                        tenants, 
+                        msgraph_endpoint, 
+                        "beta/deviceManagement/templates?$filter=(isof(%27microsoft.graph.securityBaselineTemplate%27))&$select=id",
+                        {"DeviceManagementConfiguration.Read.All"}),
+
+                    templates = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(templates, {"id", "templateId"}, MissingField.Ignore),
+
+                    // Ensure the tenantId and deviceId values are not present in the select portion of query string.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
+                    newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "templateId"}, query),
+
+                    batchRequests = Request.BuildBatches(
+                        renamed, 
+                        msgraph_endpoint & "beta/$batch",
+                        {"DeviceManagementConfiguration.Read.All"}, 
+                        each if([templateId] = null) then 
+                                null
+                            else 
+                                Request.AppendQuery( "/deviceManagement/templates/" & [templateId] & "/categories", newQuery)),
 
                      result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
                 in
@@ -1009,12 +1163,32 @@ MyResellersCustomers = (tenants as list, operation as number, optional query as 
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
         listOfTenants = Rest.GetPages(msgraph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
 
-        // /v1/customers?size=0&filter=%7B%22Field%22%3A%22IndirectReseller%22%2C%22Value%22%3A%22484e548c-f5f3-4528-93a9-c16c6373cb59%22%2C%22Operator%22%3A%22starts_with%22%7D HTTP/1.1
-        
-        request = Request.Build(listOfTenants[id], partnercenter_endpoint, "/v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}), 
-        requestSchema = type table [tenantId = text, id = text, name = text, relationshipType = text, state = text, mpnId = number, location = text],
-        result = Request.Execute(operation, request, true, requestSchema)
-    in
+        requestSchema = type table [tenantId = text, resellerId = text, id = text, companyProfile = text, relationshipToPartner = text],
+
+        result = if(operation = OperationType[SchemaOnly]) then 
+                 Request.GetSchema(requestSchema)
+            else 
+                let
+                    request = Request.Build(listOfTenants[id], partnercenter_endpoint, "v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}),
+                    resellers = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    
+                    renamed = Table.RenameColumns(resellers, {"id", "resellerId"}, MissingField.Ignore),
+
+                    // TODO - Need to figure out how we can keep the based available in the renamed table. Since we are passing a list of tenants into the function
+                    //        We are basically breaking out functionality 
+                    batchRequests = Request.Build(
+                        listOfTenants[id], 
+                        partnercenter_endpoint,
+                        {"user_impersonation"}, 
+                        each if([resellerId] = null) then 
+                                null
+                            else 
+                                partnercenter_endpoint & "v1/customers?size=0&filter=%7B%22Field%22%3A%22IndirectReseller%22%2C%22Value%22%3A%22" & [resellerId] & "%22%2C%22Operator%22%3A%22starts_with%22%7D"),
+
+                        result = Request.ExecuteBatch(operation, batchRequests, true,  requestSchema)
+                 in 
+                     result
+    in 
         result;
 
 // Navigation 
@@ -1669,7 +1843,7 @@ Request.BuildBatches = (input as table, endpoint as text, scopes as any, generat
 
                 output = if(data = null) then null else 
                     let 
-                        addIndexColumn = Table.AddColumn(data, "id", each Binary.ToText(Text.ToBinary([request]))),
+                        addIndexColumn = Table.AddColumn(data, "id", each Binary.ToText(Text.ToBinary([tenantId] & "-" & [request]))),
                         addMethodColumn = Table.AddColumn(addIndexColumn, "method", each "GET"),
                         renameColumn = Table.RenameColumns(addMethodColumn, {"request", "url"}, MissingField.Ignore),
 
@@ -1696,57 +1870,6 @@ Request.BuildSchema = (endpoint as text, resource as text, optional schemaType a
         value = if(schemaType <> null) then schemaType else [Additional = additional, Endpoint = endpoint, Resource = resource]
     in 
         value;
-
-/*
-* Gets the OData metadata for the specified endpoint.
-*
-* endpoint: The base URL for where the metadata is located.
-*
-* Returns a table that contains the metadata for the specified endpoint.
-*/
-Request.GetMetadata = (endpoint as text) =>
-    let
-        data = Web.Contents(endpoint & "/$metadata"), 
-        buffered = Binary.Buffer(data), 
-        metadata = Xml.Tables(buffered){0}[DataServices]{0}[#"http://docs.oasis-open.org/odata/ns/edm"]{0}[Schema]
-    in 
-        metadata;
-
-/*
-* Gets the schema for the specified type.
-*
-* schema: An optional value that represent the response type.
-*
-* Returns the schema for the specified type..
-*/
-Request.GetSchema = (schema as any) =>
-    let
-        result = if(Type.Is(Value.Type(schema), Record.Type)) then 
-                let 
-                    metadata = Request.GetMetadata(schema[Endpoint]),
-                    value = Schema.GetKnownType(metadata, schema[Resource], if(schema[Additional] <> null) then schema[Additional] else "tenantId = text")
-                in 
-                    value
-            else 
-                schema
-    in
-        result;
-
-/*
-* Gets the permission scope that will be used when requesting an access token.
-*
-* scopes: A list of scopes that should be included (e.g. Directory.Read.All).
-* scopePrefix: The prefix for the specified scopes (e.g. https://graph.microsoft.com).
-* 
-* Returns the complete permission scope string (e.g. https://graph.microsoft.com/Directory.Read.All).
-*/
-Request.GetScopeString = (scopes as list, optional scopePrefix as text) as text =>
-    let
-        prefix = Value.IfNull(scopePrefix, ""),
-        addPrefix = List.Transform(scopes, each prefix & _),
-        asText = Text.Combine(addPrefix, " ")
-    in
-        asText;
 
 /*
 * Executes the specified request by performing the appropriate HTTP operation.
@@ -1915,6 +2038,57 @@ Request.ExecuteBatch = (operation as number, requests as table, optional schema 
                         output
     in
         result;
+
+/*
+* Gets the OData metadata for the specified endpoint.
+*
+* endpoint: The base URL for where the metadata is located.
+*
+* Returns a table that contains the metadata for the specified endpoint.
+*/
+Request.GetMetadata = (endpoint as text) =>
+    let
+        data = Web.Contents(endpoint & "/$metadata"), 
+        buffered = Binary.Buffer(data), 
+        metadata = Xml.Tables(buffered){0}[DataServices]{0}[#"http://docs.oasis-open.org/odata/ns/edm"]{0}[Schema]
+    in 
+        metadata;
+
+/*
+* Gets the schema for the specified type.
+*
+* schema: An optional value that represent the response type.
+*
+* Returns the schema for the specified type..
+*/
+Request.GetSchema = (schema as any) =>
+    let
+        result = if(Type.Is(Value.Type(schema), Record.Type)) then 
+                let 
+                    metadata = Request.GetMetadata(schema[Endpoint]),
+                    value = Schema.GetKnownType(metadata, schema[Resource], if(schema[Additional] <> null) then schema[Additional] else "tenantId = text")
+                in 
+                    value
+            else 
+                schema
+    in
+        result;
+
+/*
+* Gets the permission scope that will be used when requesting an access token.
+*
+* scopes: A list of scopes that should be included (e.g. Directory.Read.All).
+* scopePrefix: The prefix for the specified scopes (e.g. https://graph.microsoft.com).
+* 
+* Returns the complete permission scope string (e.g. https://graph.microsoft.com/Directory.Read.All).
+*/
+Request.GetScopeString = (scopes as list, optional scopePrefix as text) as text =>
+    let
+        prefix = Value.IfNull(scopePrefix, ""),
+        addPrefix = List.Transform(scopes, each prefix & _),
+        asText = Text.Combine(addPrefix, " ")
+    in
+        asText;
 
 /*
 * Removes the specified parameter from the query string.
