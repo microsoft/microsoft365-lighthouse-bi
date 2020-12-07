@@ -1413,19 +1413,27 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
                 error Rest.GetError(document[error]) 
             else
                 let
+                    isODataFeed = if(Text.StartsWith(url, partnercenter_endpoint)) then false else true,
+
                     // Determine if the response is paged and returned from a source that supports OData.
                     dataset = if(isPaged) then 
                             let 
                                 // Partner Center does not utilize OData. So, paged values will not be available through the 
                                 // value field in the response. The information will be available through the items field.
-                                value = if(Text.StartsWith(url, partnercenter_endpoint)) then document[items] else document[value]
+                                value = if(isODataFeed) then document[value] else document[items]
                             in
                                 value
                         else
                             null,
 
-                    // TODO - Add support for paging Partner Center resources
-                    nextLink = Record.FieldOrDefault(document, "@odata.nextLink"),
+                    nextLink = if(isODataFeed) then 
+                            Record.FieldOrDefault(document, "@odata.nextLink")
+                        else 
+                            let
+                                links = Record.FieldOrDefault(document, "links"),
+                                value = if(links = null) then null else Record.FieldOrDefault(links, "next")
+                            in 
+                                value,
 
                     data = if (isPaged and schema = null) then 
                             Diagnostics.LogFailure(
@@ -1507,28 +1515,7 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
         options = if(content <> null) then Record.AddField(baseOptions, "Content", Text.ToBinary(content)) else baseOptions, 
 
         response = Web.Contents(url, Record.AddField(options, "Headers", headers)),
-        buffered = Binary.Buffer(response),
-
-        metadata = Value.Metadata(response),
-        
-        result = if(metadata[Response.Status] >= 400) then 
-                let 
-                    // TODO - Consider returning the full response minus the access token similar to the error handling used in AZPS.
-                    //        Doing this would provide more info in the diagnostics that could be used to better understand what failed.
-                    // TODO - Need to determine why the following code actually causes the requuest to be invoked multiple times. 
-                    //        This might require us to do something like buffer the record and use that for reference.
-                    message = if(Text.Contains(url, partnercenter_endpoint)) then
-                            Text.Format(
-                                "Response: status code #{0} request-id #{1}",
-                                { metadata[Response.Status], metadata[Headers][#"MS-RequestId"] })
-                        else
-                            Text.Format(
-                                "Response: status code #{0} request-id #{1}",
-                                { metadata[Response.Status], metadata[Headers][#"request-id"] })
-                in
-                    Diagnostics.Trace(TraceLevel.Error, message, () => buffered, true)
-            else 
-                buffered
+        buffered = Binary.Buffer(response)
     in 
         buffered;
 
