@@ -1375,7 +1375,7 @@ View = (entity as text, tenants as list) as table =>
             // The count value should be >= 0.
             OnTake = (count as number) =>
                 let
-                    value = if(count >= 1000) then 999 else count,
+                    value = if(count > 500) then 500 else count,
                     newState = state & [ Top = value ]
                 in
                     @View(newState),
