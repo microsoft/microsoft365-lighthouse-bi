@@ -474,7 +474,26 @@ Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
 // Helper 
 
+Value.FromConstant = (value) => 
+    if(Type.Is(Value.Type(value), Text.Type)) then 
+        Text.Format("'#{0}'", {value}) 
+    else if(Type.Is(Value.Type(value), DateTime.Type)) then 
+        DateTime.ToText(value, "yyyy-MM-ddThh:mm:ssZ")
+    else if(Type.Is(Value.Type(value), DateTimeZone.Type)) then 
+        DateTimeZone.ToText(value, "yyyy-MM-ddThh:mm:ssZ")
+    else 
+        value;
+
 Value.IfNull = (a, b) => if a <> null then a else b;
+
+Value.ToOperator = (op) => 
+    if (op = "GreaterThan") then "gt" 
+    else if(op = "GreaterThanOrEquals") then "ge"
+    else if(op = "Equals") then "eq" 
+    else if(op = "LessThan") then "lt"
+    else if(op = "LessThanOrEquals") then "le"
+    else if(op = "NotEquals") then "ne" 
+    else ...;
 
 // Information Protection
 
@@ -1300,6 +1319,25 @@ View = (entity as text, tenants as list) as table =>
                         ]
                     ),
 
+            // OnSelectRows - handles row selection
+            OnSelectRows = (selector) => 
+                let
+                    condition =  RowExpression.From(selector), 
+
+                    kind = condition[Kind],
+                    leftKind = condition[Left][Kind],
+                    rightKind = condition[Right][Kind],
+                    member = condition[Left][MemberName],
+                    value = condition[Right][Value],
+                    operator = condition[Operator],
+
+                    filter = if(kind = "Binary") then 
+                            Text.Format("#{0} #{1} #{2}", {member, Value.ToOperator(operator), Value.FromConstant(value)}) 
+                        else 
+                            ...
+                in
+                    @View(state & [ Filter = filter ] ),
+
             // OnSkip - handles the Table.Skip transform.
             // The count value should be >= 0.
             OnSkip = (count as number) =>
@@ -1382,12 +1420,19 @@ View = (entity as text, tenants as list) as table =>
                         else
                             qsWithTop,
 
+                    // Check for filtering 
+                    qsWithFilter = 
+                        if(state[Filter]? <> null) then 
+                            qsWithSkip & [ #"$filter" = state[Filter] ]
+                        else
+                            qsWithSkip,
+
                     // Check for explicitly selected columns
                     qsWithSelect =
                         if (state[SelectColumns]? <> null) then
-                            qsWithSkip & [ #"$select" = Text.Combine(List.RemoveItems(state[SelectColumns], {"tenantId"}), ",") ]
+                            qsWithFilter & [ #"$select" = Text.Combine(List.RemoveItems(state[SelectColumns], {"tenantId"}), ",") ]
                         else
-                            qsWithSkip,
+                            qsWithFilter,
 
                     qsWithOrderBy = 
                         if (state[OrderBy]? <> null) then
