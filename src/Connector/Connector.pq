@@ -1122,9 +1122,9 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, operation as num
 MyCustomers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        listOfTenants = Rest.GetPages(msgraph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
 
-        request = Request.Build(listOfTenants[id], msgraph_endpoint, "/v1.0/contracts", {"Directory.Read.All"}, query), 
+        request = Request.Build(listOfTenants[id], msgraph_endpoint, "v1.0/contracts", {"Directory.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "contract", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
@@ -1133,9 +1133,9 @@ MyCustomers = (tenants as list, operation as number, optional query as text, opt
 MyOrganization = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        listOfTenants = Rest.GetPages(msgraph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
         
-        request = Request.Build(listOfTenants[id], msgraph_endpoint, "/v1.0/organization", {"Directory.Read.All"}, query), 
+        request = Request.Build(listOfTenants[id], msgraph_endpoint, "v1.0/organization", {"Directory.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "organization", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
@@ -1144,7 +1144,7 @@ MyOrganization = (tenants as list, operation as number, optional query as text, 
 MyResellers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        listOfTenants = Rest.GetPages(msgraph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
 
         request = Request.Build(listOfTenants[id], partnercenter_endpoint, "/v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}), 
         requestSchema = type table [tenantId = text, id = text, name = text, relationshipType = text, state = text, mpnId = number, location = text],
@@ -1155,7 +1155,7 @@ MyResellers = (tenants as list, operation as number, optional query as text, opt
 MyResellersCustomers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        listOfTenants = Rest.GetPages(msgraph_endpoint & "/v1.0/organization?$select=id", GetAccessToken()),
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
 
         requestSchema = type table [tenantId = text, resellerId = text, id = text, companyProfile = text, relationshipToPartner = text],
 
@@ -1211,7 +1211,7 @@ NavigationTable = (friendlyName as text, optional tenants as list) as table =>
                 tenants
             else 
                 let 
-                    contracts = Rest.GetPages(msgraph_endpoint & "/v1.0/contracts?$select=customerId", GetAccessToken()),
+                    contracts = Rest.GetPages(msgraph_endpoint & "v1.0/contracts?$select=customerId", GetAccessToken()),
                     result = if (Table.HasColumns(contracts, {"customerId"})) then 
                             contracts[customerId]
                         else 
