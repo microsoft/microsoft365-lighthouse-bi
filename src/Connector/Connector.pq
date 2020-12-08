@@ -385,9 +385,10 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
 
     // Microsoft Endpoint Manager
     { "EndpointManager", "AndroidManagedStoreAccountEnterpriseSettings", AndroidManagedStoreAccountEnterpriseSettings },
-    { "EndpointManager", "AppleMDMPushCertificate", AppleMDMPushCertificate },
+    { "EndpointManager", "ApplePushNotificationCertificate", ApplePushNotificationCertificate },
     { "EndpointManager", "DetectedApps", DetectedApps },
     { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
+    { "EndpointManager", "DeviceAppManagementTasks", DeviceAppManagementTasks },
     { "EndpointManager", "DeviceCompliancePolicies", DeviceCompliancePolicies },
     { "EndpointManager", "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates },
     { "EndpointManager", "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
@@ -398,6 +399,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "DeviceManagementSettingDefinition", DeviceManagementSettingDefinition },
     { "EndpointManager", "GroupPolicyConfigurations", GroupPolicyConfigurations },
     { "EndpointManager", "ManagedAppPolicies", ManagedAppPolicies },
+    { "EndpointManager", "ManagedAppRegistrations", ManagedAppRegistrations },
     { "EndpointManager", "ManagedAppStatuses", ManagedAppStatuses },
     { "EndpointManager", "ManagedDevices", ManagedDevices },
     { "EndpointManager", "MobileAppConfigurations", MobileAppConfigurations },
@@ -411,8 +413,9 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance },
     { "EndpointManager", "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
     { "EndpointManager", "UserExperienceAnalyticsOverview", UserExperienceAnalyticsOverview },
-    { "EndpointManager", "WindowsProtectionState", WindowsProtectionState },
     { "EndpointManager", "WindowsAutopilotDeviceIdentities", WindowsAutopilotDeviceIdentities },
+    { "EndpointManager", "WindowsInformationProtectionWipeActions", WindowsInformationProtectionWipeActions },
+    { "EndpointManager", "WindowsProtectionState", WindowsProtectionState },
     { "EndpointManager", "WindowsUpdateForBusinessConfigurations", WindowsUpdateForBusinessConfigurations },
     { "EndpointManager", "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
 
@@ -517,18 +520,38 @@ Value.ToOperator = (op) =>
 
 // Identity Protection 
 
+/*
+* Gets a table of identity risk detections for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of identity risk detections for the specified list of tenants.
+*/
 RiskDetections = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        request = Request.Build(tenants, msgraph_endpoint, "v1.0/identityProtection/riskDetections", {"IdentityRiskEvent.Read.All"}, query), 
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "riskDetection", schema),
+        request = Request.Build(tenants, msgraph_endpoint, "beta/identityProtection/riskDetections", {"IdentityRiskEvent.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "riskDetection", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
 
+/*
+* Gets a table of risky users for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of risky users for the specified list of tenants.
+*/
 RiskyUsers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        request = Request.Build(tenants, msgraph_endpoint, "v1.0/identityProtection/riskyUsers", {"IdentityRiskyUser.Read.All"}, query), 
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "riskyUser", schema),
+        request = Request.Build(tenants, msgraph_endpoint, "beta/identityProtection/riskyUsers", {"IdentityRiskyUser.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "riskyUser", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
@@ -651,9 +674,10 @@ SecureScoreControlProfiles = (tenants as list, operation as number, optional que
 */
 AndroidManagedStoreAccountEnterpriseSettings = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/androidManagedStoreAccountEnterpriseSettings", {"DeviceManagementConfiguration.Read.All"}, query), 
+        removedTopParameter = Request.RemoveQueryParameter("$top", query),
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/androidManagedStoreAccountEnterpriseSettings", {"DeviceManagementConfiguration.Read.All"}, removedTopParameter), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "androidManagedStoreAccountEnterpriseSettings", schema),
-        result = Request.Execute(operation, request, true, requestSchema)
+        result = Request.Execute(operation, request, false, requestSchema)
     in
         result;
 
@@ -667,11 +691,12 @@ AndroidManagedStoreAccountEnterpriseSettings = (tenants as list, operation as nu
 *
 * Returns a table of Apple MDM push certificates for the specified list of tenants.
 */
-AppleMDMPushCertificate =  (tenants as list, operation as number, optional query as text, optional schema as type) =>
+ApplePushNotificationCertificate =  (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
-        request = Request.Build(tenants, msgraph_endpoint, "v1.0/deviceManagement/appleMDMPushCertificate", {"DeviceManagementManagedDevices.Read.All"}, query), 
+        removedTopParameter = Request.RemoveQueryParameter("$top", query),
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/deviceManagement/applePushNotificationCertificate", {"DeviceManagementManagedDevices.Read.All"}, removedTopParameter), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "applePushNotificationCertificate", schema),
-        result = Request.Execute(operation, request, true, requestSchema)
+        result = Request.Execute(operation, request, false, requestSchema)
     in
         result;
         
@@ -756,6 +781,14 @@ DetectedMalwareState = (tenants as list, operation as number, optional query as 
                      result
     in 
         result;
+
+DeviceAppManagementTasks = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/deviceAppManagementTasks", {"DeviceManagementApps.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceAppManagementTask", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result; 
 
 DeviceCompliancePolicies = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
@@ -917,6 +950,14 @@ ManagedAppPolicies = (tenants as list, operation as number, optional query as te
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/managedAppPolicies", {"DeviceManagementApps.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "managedAppPolicy", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+ManagedAppRegistrations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/managedAppRegistrations", {"DeviceManagementApps.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "managedAppRegistration", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
         result;
@@ -1126,6 +1167,14 @@ WindowsAutopilotDeviceIdentities = (tenants as list, operation as number, option
     let
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/windowsAutopilotDeviceIdentities", {"DeviceManagementServiceConfig.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "windowsAutopilotDeviceIdentity", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
+        result;
+
+WindowsInformationProtectionWipeActions = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/windowsInformationProtectionWipeActions", {"DeviceManagementApps.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "windowsInformationProtectionWipeAction", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in 
         result;
@@ -1393,25 +1442,26 @@ View = (entity as text, tenants as list) as table =>
                         ]
                     ),
 
-            // OnSelectRows - handles row selection
-            OnSelectRows = (selector) => 
-                let
-                    condition =  RowExpression.From(selector), 
-                    expression =  RowExpression.From(selector), 
-
-                    kind = condition[Kind],
-                    leftKind = condition[Left][Kind],
-                    rightKind = condition[Right][Kind],
-                    member = condition[Left][MemberName],
-                    value = condition[Right][Value],
-                    operator = condition[Operator],
-
-                    filter = if(expression[Kind]= "Binary") then 
-                            Filter.GetBinaryStatement(expression)
-                        else 
-                            ...
-                in
-                    @View(state & [ Filter = filter ] ),
+//            TODO - Disabling until development for this feature has been complete. This is being done to avoid any impact to testing. 
+//            // OnSelectRows - handles row selection
+//             OnSelectRows = (selector) => 
+//                 let
+//                     condition =  RowExpression.From(selector), 
+//                     expression =  RowExpression.From(selector), 
+// 
+//                     kind = condition[Kind],
+//                     leftKind = condition[Left][Kind],
+//                     rightKind = condition[Right][Kind],
+//                     member = condition[Left][MemberName],
+//                     value = condition[Right][Value],
+//                     operator = condition[Operator],
+// 
+//                     filter = if(expression[Kind]= "Binary") then 
+//                             Filter.GetBinaryStatement(expression)
+//                         else 
+//                             ...
+//                 in
+//                     @View(state & [ Filter = filter ] ),
 
             // OnSkip - handles the Table.Skip transform.
             // The count value should be >= 0.
