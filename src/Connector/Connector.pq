@@ -371,6 +371,10 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "AzureAd", "SubscribedSkus", SubscribedSkus },
     { "AzureAd", "Users", Users },
 
+    // Identity Protection 
+    { "IdentityProtection", "RiskDetections", RiskDetections },
+    { "IdentityProtection", "RiskyUsers", RiskyUsers },
+
     // Information Protection
     { "InformationProtection", "InformationProtectionLabels", InformationProtectionLabels },
 
@@ -472,6 +476,20 @@ Table.ChangeType = Extension.LoadFunction("Table.ChangeType.pqm");
 Table.GenerateByPage = Extension.LoadFunction("Table.GenerateByPage.pqm");
 Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
+// Filter
+
+Filter.GetBinaryStatement = (expression) =>
+    let 
+        leftKind = expression[Left][Kind],
+        rightKind = expression[Right][Kind],
+        member = expression[Left][MemberName],
+        value = expression[Right][Value],
+        operator = expression[Operator],
+
+        source = Text.Format("#{0} #{1} #{2}", {member, Value.ToOperator(operator), Value.FromConstant(value)}) 
+    in 
+        source;
+
 // Helper 
 
 Value.FromConstant = (value) => 
@@ -494,6 +512,24 @@ Value.ToOperator = (op) =>
     else if(op = "LessThanOrEquals") then "le"
     else if(op = "NotEquals") then "ne" 
     else ...;
+
+// Identity Protection 
+
+RiskDetections = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/identityProtection/riskDetections", {"IdentityRiskEvent.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "riskDetection", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
+        result;
+
+RiskyUsers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/identityProtection/riskyUsers", {"IdentityRiskyUser.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "riskyUser", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
+        result;
 
 // Information Protection
 
@@ -1323,6 +1359,7 @@ View = (entity as text, tenants as list) as table =>
             OnSelectRows = (selector) => 
                 let
                     condition =  RowExpression.From(selector), 
+                    expression =  RowExpression.From(selector), 
 
                     kind = condition[Kind],
                     leftKind = condition[Left][Kind],
@@ -1331,8 +1368,8 @@ View = (entity as text, tenants as list) as table =>
                     value = condition[Right][Value],
                     operator = condition[Operator],
 
-                    filter = if(kind = "Binary") then 
-                            Text.Format("#{0} #{1} #{2}", {member, Value.ToOperator(operator), Value.FromConstant(value)}) 
+                    filter = if(expression[Kind]= "Binary") then 
+                            Filter.GetBinaryStatement(expression)
                         else 
                             ...
                 in
@@ -1521,6 +1558,8 @@ Rest.GetError = (input as record) =>
     let
         result = if(Record.HasFields(input, {"error", "error_description"}) and input[error] = "invalid_grant") then 
                 Error.Record("It appears either consent has not been granted or the delegate admin privilege relationship is not valid", input[error_description], input)
+            else if(Record.HasFields(input, {"code"}) and input[code] = "Authentication_RequestFromNonPremiumTenantOrB2CTenant") then 
+                Error.Record("This operation requires the tenant to have at Microsoft Azure Active Directory premium",  input[message], input[innerError])
             else if (Record.HasFields(input, {"code"}) and input[code] = "UnknownError") then 
                 Error.Record("This tenant might not have an active Microsoft 365 subscription", input[message], input[innerError])
             else if(Record.HasFields(input, {"message"}) and input[message] = "Request not applicable to target tenant.") then 
