@@ -384,6 +384,8 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "IntelligentSecurity", "SecureScoreControlProfiles", SecureScoreControlProfiles },
 
     // Microsoft Endpoint Manager
+    { "EndpointManager", "AndroidManagedStoreAccountEnterpriseSettings", AndroidManagedStoreAccountEnterpriseSettings },
+    { "EndpointManager", "AppleMDMPushCertificate", AppleMDMPushCertificate },
     { "EndpointManager", "DetectedApps", DetectedApps },
     { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
     { "EndpointManager", "DeviceCompliancePolicies", DeviceCompliancePolicies },
@@ -638,14 +640,50 @@ SecureScoreControlProfiles = (tenants as list, operation as number, optional que
 // Microsoft Endpoint Manager
 
 /*
-* Gets a table of secure score control profiles for the specified list of tenants.
+* Gets a table of Andriod managed store account enterprise settings for the specified list of tenants.
 *
 * tenants: A list of tenants used when requesting data.
 * operation: The type of request operation to perform. 
 * query: An optional value that represents the query string to be used when requesting data.
 * schema: An optional value that represents the schema of the resulting table.
 *
-* Returns a table of secure score control profiles for the specified list of tenants.
+* Returns a table of Andriod managed store account enterprise settings for the specified list of tenants.
+*/
+AndroidManagedStoreAccountEnterpriseSettings = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/androidManagedStoreAccountEnterpriseSettings", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "androidManagedStoreAccountEnterpriseSettings", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+/*
+* Gets a table of Apple MDM push certificates for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of Apple MDM push certificates for the specified list of tenants.
+*/
+AppleMDMPushCertificate =  (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/deviceManagement/appleMDMPushCertificate", {"DeviceManagementManagedDevices.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "applePushNotificationCertificate", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+        
+/*
+* Gets a table of detected applications for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of detected applications for the specified list of tenants.
 */
 DetectedApps = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
