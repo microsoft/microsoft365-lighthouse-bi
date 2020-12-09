@@ -961,6 +961,16 @@ DeviceManagementAuditEvents = (tenants as list, operation as number, optional qu
     in
         result;
 
+/*
+* Gets a table of device management intents for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device management intents for the specified list of tenants.
+*/
 DeviceManagementIntents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/intents", {"DeviceManagementConfiguration.Read.All"}, query), 
@@ -969,6 +979,16 @@ DeviceManagementIntents = (tenants as list, operation as number, optional query 
     in
         result;
 
+/*
+* Gets a table of device management intent settings for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device management intent settings for the specified list of tenants.
+*/
 DeviceManagementIntentSettings = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementSettingInstance", schema, "tenantId = text, intentId = text"),
@@ -1005,6 +1025,16 @@ DeviceManagementIntentSettings = (tenants as list, operation as number, optional
     in 
         result;
 
+/*
+* Gets a table of device management scripts for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device management scripts for the specified list of tenants.
+*/
 DeviceManagementScripts = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceManagementScripts", {"DeviceManagementManagedDevices.Read.All"}, query), 
@@ -1013,6 +1043,16 @@ DeviceManagementScripts = (tenants as list, operation as number, optional query 
     in
         result;
 
+/*
+* Gets a table of device management setting definitions for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device management setting definitions for the specified list of tenants.
+*/
 DeviceManagementSettingDefinition = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/settingDefinitions", {"DeviceManagementConfiguration.Read.All"}, query), 
@@ -1021,6 +1061,16 @@ DeviceManagementSettingDefinition = (tenants as list, operation as number, optio
     in
         result;
 
+/*
+* Gets a table of device management troubleshooting events for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device management troubleshooting events for the specified list of tenants.
+*/
 DeviceManagementTroubleshootingEvents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/troubleshootingEvents", {"DeviceManagementManagedDevices.Read.All"}, query), 
@@ -1029,6 +1079,16 @@ DeviceManagementTroubleshootingEvents = (tenants as list, operation as number, o
     in 
         result;
 
+/*
+* Gets a table of group policy configurations for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of group policy configurations for the specified list of tenants.
+*/
 GroupPolicyConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/groupPolicyConfigurations", {"DeviceManagementConfiguration.Read.All"}, query), 
@@ -1037,6 +1097,16 @@ GroupPolicyConfigurations = (tenants as list, operation as number, optional quer
     in
         result;
 
+/*
+* Gets a table of group policy defintions for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of group policy definitions for the specified list of tenants.
+*/
 GroupPolicyDefinitions = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/groupPolicyDefinitions", {"DeviceManagementConfiguration.Read.All"}, query), 
@@ -1045,6 +1115,16 @@ GroupPolicyDefinitions = (tenants as list, operation as number, optional query a
     in
         result;
 
+/*
+* Gets a table of managed application policies for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of managed applications for the specified list of tenants.
+*/
 ManagedAppPolicies = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/managedAppPolicies", {"DeviceManagementApps.Read.All"}, query), 
@@ -1053,6 +1133,16 @@ ManagedAppPolicies = (tenants as list, operation as number, optional query as te
     in
         result;
 
+/*
+* Gets a table of managed application registrations for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of managed application registrations for the specified list of tenants.
+*/
 ManagedAppRegistrations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/managedAppRegistrations", {"DeviceManagementApps.Read.All"}, query), 
@@ -1061,6 +1151,16 @@ ManagedAppRegistrations = (tenants as list, operation as number, optional query 
     in
         result;
 
+/*
+* Gets a table of managed application statuses for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of managed application statuses for the specified list of tenants.
+*/
 ManagedAppStatuses = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/managedAppStatuses", {"DeviceManagementApps.Read.All"}, query), 
@@ -1069,6 +1169,16 @@ ManagedAppStatuses = (tenants as list, operation as number, optional query as te
     in
         result;
 
+/*
+* Gets a table of managed devices for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of managed devices for the specified list of tenants.
+*/
 ManagedDevices = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/managedDevices", {"DeviceManagementManagedDevices.Read.All"}, query), 
@@ -1077,6 +1187,16 @@ ManagedDevices = (tenants as list, operation as number, optional query as text, 
     in
         result;
 
+/*
+* Gets a table of managed device encryption states for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of managed device encryption states for the specified list of tenants.
+*/
 ManagedDeviceEncryptionStates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/managedDeviceEncryptionStates", {"DeviceManagementConfiguration.Read.All"}, query), 
@@ -1513,6 +1633,7 @@ View = (entity as text, tenants as list) as table =>
                 let
                     finalSchema = CalculateSchema(state),
                     finalQueryString = CalculateQueryString(state),
+                    // TODO - Implement logic to auto recover from specific errors (e.g., the API feature does not support sorting)
                     result = GetActionForEntity(entity)(tenants, OperationType[Request], finalQueryString, finalSchema),
                     appliedType = Table.ChangeType(result, finalSchema)
                 in
