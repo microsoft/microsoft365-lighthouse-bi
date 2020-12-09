@@ -279,8 +279,8 @@ LicenseDetails = (tenants as list, operation as number, optional query as text, 
                         "v1.0/users?$select=id",
                         {"Directory.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "userId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "userId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and userId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
@@ -387,7 +387,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "AndroidManagedStoreAccountEnterpriseSettings", AndroidManagedStoreAccountEnterpriseSettings },
     { "EndpointManager", "ApplePushNotificationCertificate", ApplePushNotificationCertificate },
     { "EndpointManager", "DetectedApps", DetectedApps },
-    { "EndpointManager", "DetectedMalwareState", DetectedMalwareState },
+    { "EndpointManager", "DetectedMalwareStates", DetectedMalwareStates },
     { "EndpointManager", "DeviceAppManagementTasks", DeviceAppManagementTasks },
     { "EndpointManager", "DeviceCompliancePolicies", DeviceCompliancePolicies },
     { "EndpointManager", "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates },
@@ -396,12 +396,17 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "DeviceManagementAuditEvents", DeviceManagementAuditEvents },
     { "EndpointManager", "DeviceManagementIntents", DeviceManagementIntents },
     { "EndpointManager", "DeviceManagementIntentSettings", DeviceManagementIntentSettings },
+    { "EndpointManager", "DeviceManagementScripts", DeviceManagementScripts },
     { "EndpointManager", "DeviceManagementSettingDefinition", DeviceManagementSettingDefinition },
+    { "EndpointManager", "DeviceManagementTroubleshootingEvents", DeviceManagementTroubleshootingEvents },
     { "EndpointManager", "GroupPolicyConfigurations", GroupPolicyConfigurations },
+    { "EndpointManager", "GroupPolicyDefinitions", GroupPolicyDefinitions },
     { "EndpointManager", "ManagedAppPolicies", ManagedAppPolicies },
     { "EndpointManager", "ManagedAppRegistrations", ManagedAppRegistrations },
     { "EndpointManager", "ManagedAppStatuses", ManagedAppStatuses },
     { "EndpointManager", "ManagedDevices", ManagedDevices },
+    { "EndpointManager", "ManagedDeviceEncryptionStates", ManagedDeviceEncryptionStates },
+    { "EndpointManager", "MicrosoftTunnelConfigurations", MicrosoftTunnelConfigurations },
     { "EndpointManager", "MobileAppConfigurations", MobileAppConfigurations },
     { "EndpointManager", "MobileApps", MobileApps },
     { "EndpointManager", "RemoteActionAudits", RemoteActionAudits },
@@ -582,8 +587,8 @@ InformationProtectionLabels = (tenants as list, operation as number, optional qu
                         "v1.0/users?$select=id",
                         {"Directory.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "userId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "userId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and userId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
@@ -746,7 +751,17 @@ DetectedApps = (tenants as list, operation as number, optional query as text, op
     in 
         result;
  
-DetectedMalwareState = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+/*
+* Gets a table of detected malware states for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of detected malware states for the specified list of tenants.
+*/
+DetectedMalwareStates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "windowsDeviceMalwareState", schema, "tenantId = text, deviceId = text"),
 
@@ -760,8 +775,8 @@ DetectedMalwareState = (tenants as list, operation as number, optional query as 
                         "beta/deviceManagement/managedDevices?$select=id&$filter=operatingSystem eq 'Windows'",
                         {"DeviceManagementManagedDevices.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
@@ -782,6 +797,16 @@ DetectedMalwareState = (tenants as list, operation as number, optional query as 
     in 
         result;
 
+/*
+* Gets a table of device management tasks for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device management tasks for the specified list of tenants.
+*/
 DeviceAppManagementTasks = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceAppManagement/deviceAppManagementTasks", {"DeviceManagementApps.Read.All"}, query), 
@@ -790,6 +815,16 @@ DeviceAppManagementTasks = (tenants as list, operation as number, optional query
     in
         result; 
 
+/*
+* Gets a table of device compliance policies for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device compliance policies for the specified list of tenants.
+*/
 DeviceCompliancePolicies = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceCompliancePolicies?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,version", {"DeviceManagementConfiguration.Read.All"}, query), 
@@ -798,6 +833,16 @@ DeviceCompliancePolicies = (tenants as list, operation as number, optional query
     in
         result;
 
+/*
+* Gets a table of device compliance policy states for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device compliance policy states for the specified list of tenants.
+*/
 DeviceCompliancePolicyStates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceCompliancePolicyState", schema, "tenantId = text, deviceId = text"),
@@ -812,8 +857,8 @@ DeviceCompliancePolicyStates = (tenants as list, operation as number, optional q
                         "beta/deviceManagement/managedDevices?$select=id",
                         {"DeviceManagementManagedDevices.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
@@ -834,6 +879,16 @@ DeviceCompliancePolicyStates = (tenants as list, operation as number, optional q
     in 
         result;
 
+/*
+* Gets a table of device configuration profiles for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device configuration profiles for the specified list of tenants.
+*/
 DeviceConfigurationProfiles = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceConfigurations?$select=id,displayName,createdDateTime,description,lastModifiedDateTime,roleScopeTagIds,supportsScopeTags,deviceManagementApplicabilityRuleOsEdition,deviceManagementApplicabilityRuleOsVersion,deviceManagementApplicabilityRuleDeviceMode,version", {"DeviceManagementConfiguration.Read.All"}, query), 
@@ -842,6 +897,16 @@ DeviceConfigurationProfiles = (tenants as list, operation as number, optional qu
     in
         result;
 
+/*
+* Gets a table of device configuration states for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device configuration states for the specified list of tenants.
+*/
 DeviceConfigurationStates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceConfigurationState", schema, "tenantId = text, deviceId = text"),
@@ -878,6 +943,16 @@ DeviceConfigurationStates = (tenants as list, operation as number, optional quer
     in 
         result;
 
+/*
+* Gets a table of device management audit events for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device management audit events for the specified list of tenants.
+*/
 DeviceManagementAuditEvents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/auditEvents", {"DeviceManagementApps.Read.All"}, query), 
@@ -930,6 +1005,14 @@ DeviceManagementIntentSettings = (tenants as list, operation as number, optional
     in 
         result;
 
+DeviceManagementScripts = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/deviceManagementScripts", {"DeviceManagementManagedDevices.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementScript", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
 DeviceManagementSettingDefinition = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/settingDefinitions", {"DeviceManagementConfiguration.Read.All"}, query), 
@@ -938,10 +1021,26 @@ DeviceManagementSettingDefinition = (tenants as list, operation as number, optio
     in
         result;
 
+DeviceManagementTroubleshootingEvents = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/troubleshootingEvents", {"DeviceManagementManagedDevices.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceManagementTroubleshootingEvent", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
+        result;
+
 GroupPolicyConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/groupPolicyConfigurations", {"DeviceManagementConfiguration.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "groupPolicyConfiguration", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+GroupPolicyDefinitions = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/groupPolicyDefinitions", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "groupPolicyDefinition", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
         result;
@@ -976,6 +1075,22 @@ ManagedDevices = (tenants as list, operation as number, optional query as text, 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "managedDevice", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
+        result;
+
+ManagedDeviceEncryptionStates = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/managedDeviceEncryptionStates", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "managedDeviceEncryptionState", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
+        result;
+
+MicrosoftTunnelConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/microsoftTunnelConfigurations", {"DeviceManagementConfiguration.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "microsoftTunnelConfiguration", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
         result;
 
 MobileAppConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
@@ -1193,8 +1308,8 @@ WindowsProtectionState = (tenants as list, operation as number, optional query a
                         "beta/deviceManagement/managedDevices?$select=id&$filter=operatingSystem eq 'Windows'",
                         {"DeviceManagementManagedDevices.Read.All"}),
 
-                    users = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(users, {"id", "deviceId"}, MissingField.Ignore),
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "deviceId"}, MissingField.Ignore),
 
                     // Ensure the tenantId and deviceId values are not present in the select portion of query string.
                     // Since the query string will be appended to the batch request these values will not present in that dataset.
@@ -2052,7 +2167,11 @@ Request.Execute = (operation as number, requests as table, isResponsePaged as lo
                         unpivot = Table.Unpivot(asTable, {"Column1"}, "Attribute", "Value"),
                         pivot = Table.Pivot(unpivot, List.Distinct(unpivot[Value]), "Value", "Attribute", each error data[Error]),
 
-                        replace = Table.ReplaceErrorValues(pivot, {{"tenantId", input[tenantId]}}), 
+                        replace = if(List.Contains(fields, "tenantId")) then 
+                                Table.ReplaceErrorValues(pivot, {{"tenantId", input[tenantId]}})
+                            else 
+                                pivot,
+                                
                         value = Table.ToRecords(replace)
                     in 
                         value
