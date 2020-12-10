@@ -488,23 +488,69 @@ Table.ToNavigationTable = Extension.LoadFunction("Table.ToNavigationTable.pqm");
 
 // Filter
 
-Filter.GetBinaryStatement = (expression) =>
-    let 
-        leftKind = expression[Left][Kind],
-        rightKind = expression[Right][Kind],
-        member = expression[Left][MemberName],
-        value = expression[Right][Value],
-        operator = expression[Operator],
+Filter.GetStatement = (expression as record) =>
+    let
+        kind = expression[Kind],
 
-        source = Text.Format("#{0} #{1} #{2}", {member, Value.ToOperator(operator), Value.FromConstant(value)}) 
+        value = if (kind = "Binary") then 
+                Filter.GetBinaryStatement(expression)
+            else if (kind = "Constant") then 
+                Filter.GetConstantStatement(expression)
+            else if (kind = "FieldAccess") then 
+                Filter.GetFieldAccessStatement(expression)
+            else if (kind = "Identifier") then 
+                ...
+            else if (kind = "Invocation") then 
+                Filter.GetInvocationStatement(expression)
+            else
+                ...
     in 
-        source;
+        value;
+
+Filter.GetBinaryStatement = (expression as record) =>
+    let 
+        left = Filter.GetStatement(expression[Left]),
+        right = Filter.GetStatement(expression[Right]),
+
+        operator = Value.ToOperator(expression[Operator]),
+        value = Text.Format("#{0} #{1} #{2}", {left, operator, right})
+    in 
+        value;
+
+Filter.GetConstantStatement = (expression as record) =>
+    let 
+        value = Value.FromConstant(expression[Value])
+    in 
+        value;
+
+Filter.GetFieldAccessStatement = (expression as record) => 
+    let 
+        value = expression[MemberName]
+    in 
+        value;
+
+Filter.GetInvocationStatement = (expression as record) =>
+    let 
+        // TODO - Need to check for function operations that can be handled by the API
+        // e.g., filter=startswith(displayName, 'al') 
+        // e.g., filter=endsWith(displayName, 'wil')
+        // e.g., lambda expressions all and any
+        // e.g., filter=categories/any(a:a eq 'Blue category'
+
+        // TODO - Some functions will need be invoked client side instead of server 
+        // value = Value.FromConstant(Expression.Evaluate("#date(2000, 1, 1)", #shared))
+        
+        value = "not currently supported"
+    in 
+        value;
 
 // Helper 
 
 Value.FromConstant = (value) => 
     if(Type.Is(Value.Type(value), Text.Type)) then 
         Text.Format("'#{0}'", {value}) 
+    else if(Type.Is(Value.Type(value), Date.Type)) then 
+        Date.ToText(value, "yyyy-MM-dd")
     else if(Type.Is(Value.Type(value), DateTime.Type)) then 
         DateTime.ToText(value, "yyyy-MM-ddThh:mm:ssZ")
     else if(Type.Is(Value.Type(value), DateTimeZone.Type)) then 
@@ -515,12 +561,14 @@ Value.FromConstant = (value) =>
 Value.IfNull = (a, b) => if a <> null then a else b;
 
 Value.ToOperator = (op) => 
-    if (op = "GreaterThan") then "gt" 
-    else if(op = "GreaterThanOrEquals") then "ge"
-    else if(op = "Equals") then "eq" 
-    else if(op = "LessThan") then "lt"
-    else if(op = "LessThanOrEquals") then "le"
-    else if(op = "NotEquals") then "ne" 
+    if (op = "And") then "and" 
+    else if (op = "GreaterThan") then "gt" 
+    else if (op = "GreaterThanOrEquals") then "ge"
+    else if (op = "Equals") then "eq" 
+    else if (op = "LessThan") then "lt"
+    else if (op = "LessThanOrEquals") then "le"
+    else if (op = "NotEquals") then "ne" 
+    else if (op = "Or") then "or" 
     else ...;
 
 // Identity Protection 
@@ -1523,7 +1571,7 @@ MyResellers = (tenants as list, operation as number, optional query as text, opt
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
         listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
 
-        request = Request.Build(listOfTenants[id], partnercenter_endpoint, "/v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}), 
+        request = Request.Build(listOfTenants[id], partnercenter_endpoint, "v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}), 
         requestSchema = type table [tenantId = text, id = text, name = text, relationshipType = text, state = text, mpnId = number, location = text],
         result = Request.Execute(operation, request, true, requestSchema)
     in
@@ -1625,20 +1673,6 @@ View = (entity as text, tenants as list) as table =>
         //
         View = (state as record) => Table.View(null, Diagnostics.WrapHandlers([
 
-            // Returns the table type returned by GetRows()
-            GetType = () => CalculateSchema(state),
-
-            // Called last - retrieves the data from the calculated URL
-            GetRows = () => 
-                let
-                    finalSchema = CalculateSchema(state),
-                    finalQueryString = CalculateQueryString(state),
-                    // TODO - Implement logic to auto recover from specific errors (e.g., the API feature does not support sorting)
-                    result = GetActionForEntity(entity)(tenants, OperationType[Request], finalQueryString, finalSchema),
-                    appliedType = Table.ChangeType(result, finalSchema)
-                in
-                    appliedType,
-
             // GetRowCount - called when all we want is the total row count.
             // Most OData services support $count, but it only works if
             // no other query parameters are sent (i.e. $top, or $filter).
@@ -1657,6 +1691,20 @@ View = (entity as text, tenants as list) as table =>
                         converted = Number.FromText(value)
                     in
                         converted,
+
+            // Called last - retrieves the data from the calculated URL
+            GetRows = () => 
+                let
+                    finalSchema = CalculateSchema(state),
+                    finalQueryString = CalculateQueryString(state),
+                    // TODO - Implement logic to auto recover from specific errors (e.g., the API feature does not support sorting)
+                    result = GetActionForEntity(entity)(tenants, OperationType[Request], finalQueryString, finalSchema),
+                    appliedType = Table.ChangeType(result, finalSchema)
+                in
+                    appliedType,
+
+            // Returns the table type returned by GetRows()
+            GetType = () => CalculateSchema(state),
 
             // OnSelectColumns - handles column selection
             OnSelectColumns = (columns as list) =>
@@ -1678,26 +1726,13 @@ View = (entity as text, tenants as list) as table =>
                         ]
                     ),
 
-//            TODO - Disabling until development for this feature has been complete. This is being done to avoid any impact to testing. 
-//            // OnSelectRows - handles row selection
-//             OnSelectRows = (selector) => 
-//                 let
-//                     condition =  RowExpression.From(selector), 
-//                     expression =  RowExpression.From(selector), 
-// 
-//                     kind = condition[Kind],
-//                     leftKind = condition[Left][Kind],
-//                     rightKind = condition[Right][Kind],
-//                     member = condition[Left][MemberName],
-//                     value = condition[Right][Value],
-//                     operator = condition[Operator],
-// 
-//                     filter = if(expression[Kind]= "Binary") then 
-//                             Filter.GetBinaryStatement(expression)
-//                         else 
-//                             ...
-//                 in
-//                     @View(state & [ Filter = filter ] ),
+           // OnSelectRows - handles row selection
+            OnSelectRows = (selector) => 
+                let
+                    expression =  RowExpression.From(selector), 
+                    filter = Filter.GetStatement(expression)
+                in
+                    @View(state & [ Filter = filter ] ),
 
             // OnSkip - handles the Table.Skip transform.
             // The count value should be >= 0.
