@@ -499,7 +499,7 @@ Filter.GetStatement = (expression as record) =>
             else if (kind = "FieldAccess") then 
                 Filter.GetFieldAccessStatement(expression)
             else if (kind = "Identifier") then 
-                ...
+                Filter.GetIdentifierStatement(expression)
             else if (kind = "Invocation") then 
                 Filter.GetInvocationStatement(expression)
             else
@@ -527,6 +527,12 @@ Filter.GetFieldAccessStatement = (expression as record) =>
     let 
         value = expression[MemberName]
     in 
+        value;
+
+Filter.GetIdentifierStatement = (expression as record) =>
+    let 
+        value = Value.FromConstant(expression[Value])
+    in
         value;
 
 Filter.GetInvocationStatement = (expression as record) =>
@@ -1550,8 +1556,16 @@ MyCustomers = (tenants as list, operation as number, optional query as text, opt
         listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
 
         request = Request.Build(listOfTenants[id], msgraph_endpoint, "v1.0/contracts", {"Directory.Read.All"}, query), 
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "contract", schema),
-        result = Request.Execute(operation, request, true, requestSchema)
+        requestSchema = type table [partnerTenantId = text, tenantId = text, deletedDateTime = datetimezone, contractType = text, defaultDomainName = text, displayName = text],
+
+        result = if(operation = OperationType[SchemaOnly]) then  
+                Request.Execute(operation, request, true, requestSchema)
+            else 
+                let 
+                    data = Request.Execute(operation, request, true),
+                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}, {"customerId", "tenantId"}})
+                in 
+                    rename
     in
         result;
 
