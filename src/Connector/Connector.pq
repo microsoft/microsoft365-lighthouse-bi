@@ -2,7 +2,7 @@
 
 // Global variables
 
-[Version = "0.5.0"]
+[Version = "0.2101.1"]
 
 authorize_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize";
 client_id = Text.FromBinary(Extension.Contents("client_id"));
@@ -1711,11 +1711,23 @@ View = (entity as text, tenants as list) as table =>
                 let
                     finalSchema = CalculateSchema(state),
                     finalQueryString = CalculateQueryString(state),
-                    // TODO - Implement logic to auto recover from specific errors (e.g., the API feature does not support sorting)
                     result = GetActionForEntity(entity)(tenants, OperationType[Request], finalQueryString, finalSchema),
-                    appliedType = Table.ChangeType(result, finalSchema)
+                    changedType = Table.ChangeType(result, finalSchema),
+
+                    value = if(state[FilterSelector]? <> null) then 
+                             let 
+                                // The resource not found execption can be encountered when filtering across multiple tenants. 
+                                // While this is expected because the filter will be applied to each tenant specified, it can 
+                                // result in an unexpected error to thrown when filtering. So, we are remove all rows with errors
+                                // before applying the row selector to the rows.
+                                rowsWithNoErrors = Table.RemoveRowsWithErrors(changedType),
+                                value = Table.SelectRows(rowsWithNoErrors, state[FilterSelector])
+                            in 
+                                value
+                        else
+                            changedType
                 in
-                    appliedType,
+                    value,
 
             // Returns the table type returned by GetRows()
             GetType = () => CalculateSchema(state),
@@ -1746,7 +1758,7 @@ View = (entity as text, tenants as list) as table =>
                     expression =  RowExpression.From(selector), 
                     filter = Filter.GetStatement(expression)
                 in
-                    @View(state & [ Filter = filter ] ),
+                    @View(state & [ Filter = filter, FilterSelector = selector ] ),
 
             // OnSkip - handles the Table.Skip transform.
             // The count value should be >= 0.
