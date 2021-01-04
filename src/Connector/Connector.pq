@@ -546,9 +546,14 @@ Filter.GetInvocationStatement = (expression as record) =>
         // TODO - Some functions will need be invoked client side instead of server 
         // value = Value.FromConstant(Expression.Evaluate("#date(2000, 1, 1)", #shared))
         
-        value = "not currently supported"
+        args = List.Transform(expression[Arguments], (a) => Filter.GetStatement(a)),
+        func = expression[Function][Value],
+        
+        // output = Function.Invoke(func, args)
+
+        output = "not currently supported"
     in 
-        value;
+        output;
 
 // Helper 
 
@@ -1563,7 +1568,7 @@ MyCustomers = (tenants as list, operation as number, optional query as text, opt
             else 
                 let 
                     data = Request.Execute(operation, request, true),
-                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}, {"customerId", "tenantId"}})
+                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}, {"customerId", "tenantId"}}, MissingField.Ignore)
                 in 
                     rename
     in
@@ -1575,8 +1580,16 @@ MyOrganization = (tenants as list, operation as number, optional query as text, 
         listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
         
         request = Request.Build(listOfTenants[id], msgraph_endpoint, "v1.0/organization", {"Directory.Read.All"}, query), 
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "organization", schema),
-        result = Request.Execute(operation, request, true, requestSchema)
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "organization", schema, "partnerTenantId = text"),
+
+        result = if(operation = OperationType[SchemaOnly]) then  
+                Request.Execute(operation, request, true, requestSchema)
+            else 
+                let 
+                    data = Request.Execute(operation, request, true),
+                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
+                in 
+                    rename
     in
         result;
 
@@ -1586,8 +1599,16 @@ MyResellers = (tenants as list, operation as number, optional query as text, opt
         listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
 
         request = Request.Build(listOfTenants[id], partnercenter_endpoint, "v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}), 
-        requestSchema = type table [tenantId = text, id = text, name = text, relationshipType = text, state = text, mpnId = number, location = text],
-        result = Request.Execute(operation, request, true, requestSchema)
+        requestSchema = type table [partnerTenantId = text, id = text, name = text, relationshipType = text, state = text, mpnId = number, location = text],
+       
+        result = if(operation = OperationType[SchemaOnly]) then  
+                Request.Execute(operation, request, true, requestSchema)
+            else 
+                let 
+                    data = Request.Execute(operation, request, true, requestSchema),
+                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
+                in 
+                    rename
     in
         result;
 
@@ -1595,6 +1616,9 @@ MyResellersCustomers = (tenants as list, operation as number, optional query as 
     let
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
         listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
+
+        // TODO - The resulting table should match the above query. Meaning the tenantId column should be partnerTenantId, that way the relationships can be 
+        //        constructed without introducing unnecessary confusion
 
         requestSchema = type table [tenantId = text, resellerId = text, id = text, companyProfile = text, relationshipToPartner = text],
 
@@ -1875,9 +1899,12 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
     let 
         response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token),
         document = Json.Document(response), 
+        metadata = Value.Metadata(response),
 
         result = if(Record.HasFields(document, {"error"})) then 
                 error Rest.GetError(document[error]) 
+            else if(metadata[Status] >= 400) then 
+                error Rest.GetError(document)
             else
                 let
                     isODataFeed = if(Text.StartsWith(url, partnercenter_endpoint)) then false else true,
@@ -1949,6 +1976,8 @@ Rest.GetError = (input as record) =>
                 Error.Record("This tenant might not have an active Microsoft 365 subscription", input[message], input[innerError])
             else if(Record.HasFields(input, {"message"}) and input[message] = "Request not applicable to target tenant.") then 
                 Error.Record("This tenant does not have an entitlement for Microsoft Intune", input[message], input[innerError])
+            else if(Record.HasFields(input, {"message"}) and input[message] = "The supplied role does not have the rights to perform the requested operation.") then 
+                Error.Record("This partner tenant is either not an indirect provider or the authenticated user is not a member of the AdminAgents group", input[message])
             else 
                 Error.Record(input[code], input[message], input[innerError])
     in
@@ -1984,15 +2013,16 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
         options = if(content <> null) then Record.AddField(baseOptions, "Content", Text.ToBinary(content)) else baseOptions, 
 
         response = Web.Contents(url, Record.AddField(options, "Headers", headers)),
-        buffered = Binary.Buffer(response)
+        buffered = Binary.Buffer(response),
+        status = Value.Metadata(response)[Response.Status]
     in 
-        buffered;
+        buffered meta [Status = status];
 
 Rest.Scalar = (requests as table) =>
     let
         GetData = (input as record) =>
             let 
-                response = Rest.Request(input[secMgmtInsightsRequest], "text/plain", GetAccessToken(input[tenantId], input[scope])),
+                response = Rest.Request(input[request], "text/plain", GetAccessToken(input[tenantId], input[scope])),
                 value = Text.FromBinary(response)
             in
                 value,
