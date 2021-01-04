@@ -1617,10 +1617,7 @@ MyResellersCustomers = (tenants as list, operation as number, optional query as 
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
         listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
 
-        // TODO - The resulting table should match the above query. Meaning the tenantId column should be partnerTenantId, that way the relationships can be 
-        //        constructed without introducing unnecessary confusion
-
-        requestSchema = type table [tenantId = text, resellerId = text, id = text, companyProfile = text, relationshipToPartner = text],
+        requestSchema = type table [partnerTenantId = text, resellerId = text, id = text, companyProfile = text, relationshipToPartner = text],
 
         result = if(operation = OperationType[SchemaOnly]) then 
                  Request.GetSchema(requestSchema)
@@ -1641,9 +1638,10 @@ MyResellersCustomers = (tenants as list, operation as number, optional query as 
                         "request",
                         each partnercenter_endpoint & "v1/customers?size=0&filter=%7B%22Field%22%3A%22IndirectReseller%22%2C%22Value%22%3A%22" & [resellerId] & "%22%2C%22Operator%22%3A%22starts_with%22%7D"),
 
-                    result = Request.Execute(OperationType[Request], appendRequest, true, requestSchema)
+                    data = Request.Execute(OperationType[Request], appendRequest, true, requestSchema), 
+                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
                  in 
-                     result
+                     rename
     in 
         result;
 
