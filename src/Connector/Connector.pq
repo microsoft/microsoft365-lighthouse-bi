@@ -1747,9 +1747,24 @@ View = (entity as text, tenants as list) as table =>
                             in 
                                 value
                         else
-                            changedType
+                            changedType, 
+
+                    // TODO - Determine if we should be removing rows with errors as seen below. We might need to add logic where they get added back after the fact
+
+                    // Not all services used by this connector support sorting. If the sort property is present in the state object that
+                    // means sorting was not handled by the service. Which means it needs to be applied directly to ensure the records
+                    // are modified as requested by the caller.
+                    withSortApplied = if(state[Sort]? <> null) then Table.Sort(Table.RemoveRowsWithErrors(value), state[Sort]) else value,
+
+                    // TODO - Determine if the take operation should be applied to each tenant instead of the entire dataset. With the current logic the 
+                    //        behavior is inconsistent between operations that support top and those that do not. So, the question here is should we make them match?
+
+                    // Not all services used by this connector support take. If the sort property is present in the state object that
+                    // means take was not handled by the service. Which means it needs to be applied directly to ensure the records
+                    // are modified as requested by the caller.
+                    withTakeApplied = if(state[Take]? <> null) then Table.FirstN(Table.RemoveRowsWithErrors(withSortApplied), state[Take]) else withSortApplied
                 in
-                    value,
+                    withTakeApplied,
 
             // Returns the table type returned by GetRows()
             GetType = () => CalculateSchema(state),
@@ -1800,6 +1815,20 @@ View = (entity as text, tenants as list) as table =>
             // existing schema.
             OnSort = (order as list) =>
                 let
+                    // Not all services used by this connector support sorting. The following will capture the sort the operation and 
+                    // stored the intended output in the state. That way it can be applied directly when the GetRows function is invoked.
+                    value = if(entity = "ServiceCurrentStatus" or entity = "ServiceHistoricalStatus" or entity = "ServiceMessages") then 
+                            List.Transform(order, (o) => 
+                                let
+                                    column = o[Name],
+                                    order = o[Order],
+                                    orderText = if (order = Order.Ascending) then Order.Ascending else Order.Descending
+                                in
+                                    {column, orderText}
+                            )
+                        else 
+                            null,
+
                     // This will convert the list of records to a list of text,
                     // where each entry is "<columnName> <asc|desc>"
                     sorting = List.Transform(order, (o) => 
@@ -1812,15 +1841,23 @@ View = (entity as text, tenants as list) as table =>
                     ),
                     orderBy = Text.Combine(sorting, ", ")
                 in
-                    @View(state & [ OrderBy = orderBy ]),
+                    @View(state & [ OrderBy = orderBy, Sort = value ]),
 
             // OnTake - handles the Table.FirstN transform, limiting
             // the maximum number of rows returned in the result set.
             // The count value should be >= 0.
             OnTake = (count as number) =>
                 let
-                    value = if(count > 500) then 500 else count,
-                    newState = state & [ Top = value ]
+                    topValue = if(count > 500) then 500 else count,
+                    
+                    // Not all services used by this connector support top. The following will capture the take the operation and 
+                    // stored the intended output in the state. That way it can be applied directly when the GetRows function is invoked.
+                    value = if(entity = "ServiceCurrentStatus" or entity = "ServiceHistoricalStatus" or entity = "ServiceMessages") then 
+                            topValue
+                        else
+                            null,
+                    
+                    newState = state & [ Take = value, Top = topValue ]
                 in
                     @View(newState),
 
