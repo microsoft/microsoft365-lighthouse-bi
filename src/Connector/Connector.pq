@@ -2,7 +2,7 @@
 
 // Global variables
 
-[Version = "0.2101.1"]
+[Version = "0.2102.1"]
 
 authorize_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize";
 client_id = Text.FromBinary(Extension.Contents("client_id"));
@@ -417,7 +417,6 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "SubscriptionState", SubscriptionState },
     { "EndpointManager", "UserExperienceAnalyticsDevicePerformance", UserExperienceAnalyticsDevicePerformance },
     { "EndpointManager", "UserExperienceAnalyticsDeviceStartupProcessPerformance", UserExperienceAnalyticsDeviceStartupProcessPerformance },
-    { "EndpointManager", "UserExperienceAnalyticsOverview", UserExperienceAnalyticsOverview },
     { "EndpointManager", "WindowsAutopilotDeviceIdentities", WindowsAutopilotDeviceIdentities },
     { "EndpointManager", "WindowsInformationProtectionWipeActions", WindowsInformationProtectionWipeActions },
     { "EndpointManager", "WindowsProtectionState", WindowsProtectionState },
@@ -1445,14 +1444,6 @@ UserExperienceAnalyticsDeviceStartupProcessPerformance = (tenants as list, opera
     let 
         request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/userExperienceAnalyticsDeviceStartupProcessPerformance", {"DeviceManagementManagedDevices.Read.All"}, query), 
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "userExperienceAnalyticsDeviceStartupProcessPerformance", schema),
-        result = Request.Execute(operation, request, true, requestSchema)
-    in
-        result;
-
-UserExperienceAnalyticsOverview = (tenants as list, operation as number, optional query as text, optional schema as type) =>
-    let 
-        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceManagement/userExperienceAnalyticsOverview", {"DeviceManagementManagedDevices.Read.All"}, query), 
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "userExperienceAnalyticsOverview", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
         result;

@@ -10,9 +10,9 @@
 
 ## PR Checklist
 
-- [ ] I have read the [development](../blob/main/CONTRIBUTING.md#development) section of [`contributor's guide`](../blob/main/CONTRIBUTING.md)
+- [ ] I have read the [development](../CONTRIBUTING.md#development) section of [`contributor's guide`](../CONTRIBUTING.md)
 - [ ] If applicable, the changes made in the PR have proper test coverage
-- [ ] The [`change log`](../blob/main/CHANGELOG.md) has been updated:
+- [ ] The [`change log`](../CHANGELOG.md) has been updated:
   - [ ] A snippet outlining the change(s) made in the PR should be written under the `## Upcoming Release` header -- no new version header should be added
 - [ ] The PR does not introduce breaking changes
 - [ ] The title of the PR is clear and informative

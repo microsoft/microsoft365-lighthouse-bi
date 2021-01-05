@@ -43,7 +43,7 @@ When you hit "New Issue", select the type of issue closest to what you want to a
 
 **Complete the information requested in the issue template, providing as much information as possible**. The more information you provide, the more likely your issue/ask will be understood and implemented. Helpful information includes:
 
-* **If you intend to implement the fix/feature yourself then say so!** If you do not indicate otherwise we will assume that the issue is our to solve, or may label the issue as `Help-Wanted`.
+* **If you intend to implement the fix/feature yourself then say so!** If you do not indicate otherwise we will assume that the issue is ours to solve, or maybe label the issue as `Help Wanted`.
 * Prefer error message text where possible or screenshots of errors if text cannot be captured
 * **We LOVE detailed repro steps!** What steps do we need to take to reproduce the issue? Assume we love to read repro steps. As much detail as you can stand is probably _barely_ enough detail for us!
 * We MUCH prefer text query over screenshots of the query.
