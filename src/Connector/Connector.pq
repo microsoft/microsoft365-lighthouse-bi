@@ -1806,9 +1806,23 @@ View = (entity as text, tenants as list) as table =>
             // existing schema.
             OnSort = (order as list) =>
                 let
+                    // This will convert the list of records to a list of text,
+                    // where each entry is "<columnName> <asc|desc>"
+                    sorting = List.Transform(order, (o) => 
+                        let
+                            column = o[Name],
+                            order = o[Order],
+                            orderText = if (order = Order.Ascending) then "asc" else "desc"
+                        in
+                            column & " " & orderText
+                    ),
+
                     // Not all services used by this connector support sorting. The following will capture the sort the operation and 
                     // stored the intended output in the state. That way it can be applied directly when the GetRows function is invoked.
-                    value = if(entity = "ServiceCurrentStatus" or entity = "ServiceHistoricalStatus" or entity = "ServiceMessages") then 
+                    // Also, there are some features within Microsoft Graph that do not support the order by query string parameter. To 
+                    // prevent an error from being thrown due to the server side exception sorting for these functions will be handled 
+                    // client side to avoid the unexpected behavior.
+                    sortValue = if(entity = "Domains" or entity = "ServiceCurrentStatus" or entity = "ServiceHistoricalStatus" or entity = "ServiceMessages") then 
                             List.Transform(order, (o) => 
                                 let
                                     column = o[Name],
@@ -1820,19 +1834,9 @@ View = (entity as text, tenants as list) as table =>
                         else 
                             null,
 
-                    // This will convert the list of records to a list of text,
-                    // where each entry is "<columnName> <asc|desc>"
-                    sorting = List.Transform(order, (o) => 
-                        let
-                            column = o[Name],
-                            order = o[Order],
-                            orderText = if (order = Order.Ascending) then "asc" else "desc"
-                        in
-                            column & " " & orderText
-                    ),
-                    orderBy = Text.Combine(sorting, ", ")
+                    orderBy = if(sortValue = null) then Text.Combine(sorting, ", ") else null
                 in
-                    @View(state & [ OrderBy = orderBy, Sort = value ]),
+                    @View(state & [ OrderBy = orderBy, Sort = sortValue ]),
 
             // OnTake - handles the Table.FirstN transform, limiting
             // the maximum number of rows returned in the result set.
