@@ -1584,7 +1584,7 @@ NavigationTable = (tenantName as text, tenantType as text) as table =>
                 in
                     result
             else
-                Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
+                Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken())[id],
 
         GetNestedNavigationTable = (input as table) as table =>
             let
@@ -1613,7 +1613,7 @@ NavigationTable = (tenantName as text, tenantType as text) as table =>
                         withoutResellerCustomers
 
             else
-                Table.RemoveMatchingRows(EntityTable, {[Workload = "Partners"]}, "Workload"),
+                Table.RemoveMatchingRows(EntityTable, {[Workload = "Partner"]}, "Workload"),
 
         // Group the items in the entity table by workload because those will be the folders in our navigation table
         grouped = Table.Group(entities, {"Workload"}, {{"Nested", each _}}),
