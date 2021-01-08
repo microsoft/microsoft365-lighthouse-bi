@@ -26,9 +26,9 @@ OperationType = [
 
 TenantType = {
     "Customer",
-    "CSP - Direct",
-    "CSP - Indirect Provider",
-    "CSP - Indirect Reseller"
+    "Cloud Solution Provider - Direct",
+    "Cloud Solution Provider - Indirect Provider",
+    "Cloud Solution Provider - Indirect Reseller"
 };
 
 // Data Source Kind description
@@ -432,15 +432,17 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "WindowsUpdateForBusinessConfigurationStates", WindowsUpdateForBusinessConfigurationStates },
 
     // My 
-    { "My", "MyCustomers", MyCustomers },
     { "My", "MyOrganization", MyOrganization },
-    { "My", "MyResellers", MyResellers },
-    { "My", "MyResellersCustomers", MyResellersCustomers },
 
     // Office 365 Service Communications 
     { "ServiceCommunications", "ServiceCurrentStatus", ServiceCurrentStatus },
     { "ServiceCommunications", "ServiceHistoricalStatus", ServiceHistoricalStatus },
     { "ServiceCommunications", "ServiceMessages", ServiceMessages },
+
+    // Partner 
+    { "Partner", "Customers", Customers },
+    { "Partner", "Resellers", Resellers },
+    { "Partner", "ResellerCustomers", ResellerCustomers },
 
     // Reporting
     { "Reporting", "CredentialUserRegistrationDetails", CredentialUserRegistrationDetails },
@@ -1554,94 +1556,15 @@ WindowsUpdateForBusinessConfigurationStates = (tenants as list, operation as num
 
 // My
 
-MyCustomers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
-    let
-        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
-
-        request = Request.Build(listOfTenants[id], msgraph_endpoint, "v1.0/contracts", {"Directory.Read.All"}, query), 
-        requestSchema = type table [partnerTenantId = text, tenantId = text, deletedDateTime = datetimezone, contractType = text, defaultDomainName = text, displayName = text],
-
-        result = if(operation = OperationType[SchemaOnly]) then  
-                Request.Execute(operation, request, true, requestSchema)
-            else 
-                let 
-                    data = Request.Execute(operation, request, true),
-                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}, {"customerId", "tenantId"}}, MissingField.Ignore)
-                in 
-                    rename
-    in
-        result;
-
 MyOrganization = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
         listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
         
         request = Request.Build(listOfTenants[id], msgraph_endpoint, "v1.0/organization", {"Directory.Read.All"}, query), 
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "organization", schema, "partnerTenantId = text"),
-
-        result = if(operation = OperationType[SchemaOnly]) then  
-                Request.Execute(operation, request, true, requestSchema)
-            else 
-                let 
-                    data = Request.Execute(operation, request, true),
-                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
-                in 
-                    rename
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "organization", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
     in
-        result;
-
-MyResellers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
-    let
-        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
-
-        request = Request.Build(listOfTenants[id], partnercenter_endpoint, "v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}), 
-        requestSchema = type table [partnerTenantId = text, id = text, name = text, relationshipType = text, state = text, mpnId = number, location = text],
-       
-        result = if(operation = OperationType[SchemaOnly]) then  
-                Request.Execute(operation, request, true, requestSchema)
-            else 
-                let 
-                    data = Request.Execute(operation, request, true, requestSchema),
-                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
-                in 
-                    rename
-    in
-        result;
-
-MyResellersCustomers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
-    let
-        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
-        listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
-
-        requestSchema = type table [partnerTenantId = text, resellerId = text, id = text, companyProfile = text, relationshipToPartner = text],
-
-        result = if(operation = OperationType[SchemaOnly]) then 
-                 Request.GetSchema(requestSchema)
-            else 
-                let
-                    request = Request.Build(listOfTenants[id], partnercenter_endpoint, "v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}),
-                    resellers = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    
-                    idRenamed = Table.RenameColumns(resellers, {"id", "resellerId"}, MissingField.Ignore),
-
-                    appendScope = Table.AddColumn(
-                        idRenamed, 
-                        "scope", 
-                        each Request.GetScopeString({"user_impersonation"}, partnercenter_endpoint)),
-
-                    appendRequest = Table.AddColumn(
-                        appendScope,
-                        "request",
-                        each partnercenter_endpoint & "v1/customers?size=0&filter=%7B%22Field%22%3A%22IndirectReseller%22%2C%22Value%22%3A%22" & [resellerId] & "%22%2C%22Operator%22%3A%22starts_with%22%7D"),
-
-                    data = Request.Execute(OperationType[Request], appendRequest, true, requestSchema), 
-                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
-                 in 
-                     rename
-    in 
         result;
 
 // Navigation 
@@ -1651,7 +1574,7 @@ shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Mic
 
 NavigationTable = (tenantName as text, tenantType as text) as table =>
     let
-        listOfTenants = if(Text.Contains(tenantType, "CSP", Comparer.OrdinalIgnoreCase)) then 
+        listOfTenants = if(Text.Contains(tenantType, "Cloud Solution Provider", Comparer.OrdinalIgnoreCase)) then 
                 let 
                     contracts = Rest.GetPages(msgraph_endpoint & "v1.0/contracts?$select=customerId", GetAccessToken()),
                     result = if (Table.HasColumns(contracts, {"customerId"})) then 
@@ -1679,8 +1602,21 @@ NavigationTable = (tenantName as text, tenantType as text) as table =>
             in 
                 navTable,
 
+        entities = if(Text.Contains(tenantType, "Cloud Solution Provider")) then 
+                if(tenantType = "Cloud Solution Provider - Indirect Provider") then 
+                    EntityTable
+                else
+                    let
+                        withoutResellers = Table.RemoveMatchingRows(EntityTable, {[Name = "Resellers"]}, "Name"), 
+                        withoutResellerCustomers = Table.RemoveMatchingRows(withoutResellers, {[Name = "ResellerCustomers"]}, "Name")
+                    in 
+                        withoutResellerCustomers
+
+            else
+                Table.RemoveMatchingRows(EntityTable, {[Workload = "Partners"]}, "Workload"),
+
         // Group the items in the entity table by workload because those will be the folders in our navigation table
-        grouped = Table.Group(EntityTable, {"Workload"}, {{"Nested", each _}}),
+        grouped = Table.Group(entities, {"Workload"}, {{"Nested", each _}}),
         // Convert the list of workloads to a table
         asTable = Table.FromList(grouped[Workload], Splitter.SplitByNothing()),
         // Rename the default column to key
@@ -2124,6 +2060,109 @@ ServiceMessages = (tenants as list, operation as number, optional query as text,
         requestSchema = type table [tenantId = text, Id = text, Name = text, Title = text, StartTime = datetimezone, EndTime = datetimezone, Status = text, Messages = any, LastUpdatedTime = datetimezone, Workload = text, WorkloadDisplayName = text, Feature = text, FeatureDisplayName = text],
         result = Request.Execute(operation, request, true, requestSchema)
     in
+        result;
+
+// Partner 
+
+/*
+* Gets a table of customers for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of customers for the the specified list of tenants.
+*/
+Customers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
+
+        request = Request.Build(listOfTenants[id], msgraph_endpoint, "v1.0/contracts", {"Directory.Read.All"}, query), 
+        requestSchema = type table [partnerTenantId = text, tenantId = text, deletedDateTime = datetimezone, contractType = text, defaultDomainName = text, displayName = text],
+
+        result = if(operation = OperationType[SchemaOnly]) then  
+                Request.Execute(operation, request, true, requestSchema)
+            else 
+                let 
+                    data = Request.Execute(operation, request, true),
+                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}, {"customerId", "tenantId"}}, MissingField.Ignore)
+                in 
+                    rename
+    in
+        result;
+
+/*
+* Gets a table of resellers for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of resellers for the the specified list of tenants.
+*/
+Resellers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
+
+        request = Request.Build(listOfTenants[id], partnercenter_endpoint, "v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}), 
+        requestSchema = type table [partnerTenantId = text, id = text, name = text, relationshipType = text, state = text, mpnId = number, location = text],
+       
+        result = if(operation = OperationType[SchemaOnly]) then  
+                Request.Execute(operation, request, true, requestSchema)
+            else 
+                let 
+                    data = Request.Execute(operation, request, true, requestSchema),
+                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
+                in 
+                    rename
+    in
+        result;
+
+/*
+* Gets a table of reseller customers for the the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of reseller customers for the the specified list of tenants.
+*/
+ResellerCustomers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
+        listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
+
+        requestSchema = type table [partnerTenantId = text, resellerId = text, id = text, companyProfile = text, relationshipToPartner = text],
+
+        result = if(operation = OperationType[SchemaOnly]) then 
+                 Request.GetSchema(requestSchema)
+            else 
+                let
+                    request = Request.Build(listOfTenants[id], partnercenter_endpoint, "v1/relationships?relationship_type=IsIndirectCloudSolutionProviderOf", {"user_impersonation"}),
+                    resellers = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    
+                    idRenamed = Table.RenameColumns(resellers, {"id", "resellerId"}, MissingField.Ignore),
+
+                    appendScope = Table.AddColumn(
+                        idRenamed, 
+                        "scope", 
+                        each Request.GetScopeString({"user_impersonation"}, partnercenter_endpoint)),
+
+                    appendRequest = Table.AddColumn(
+                        appendScope,
+                        "request",
+                        each partnercenter_endpoint & "v1/customers?size=0&filter=%7B%22Field%22%3A%22IndirectReseller%22%2C%22Value%22%3A%22" & [resellerId] & "%22%2C%22Operator%22%3A%22starts_with%22%7D"),
+
+                    data = Request.Execute(OperationType[Request], appendRequest, true, requestSchema), 
+                    rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
+                 in 
+                     rename
+    in 
         result;
 
 // Reporting 
