@@ -24,6 +24,13 @@ OperationType = [
     SchemaOnly = 2
 ];
 
+TenantType = {
+    "Customer",
+    "CSP - Direct",
+    "CSP - Indirect Provider",
+    "CSP - Indirect Reseller"
+};
+
 // Data Source Kind description
 
 Microsoft365Lighthouse = [
@@ -54,16 +61,17 @@ Microsoft365Lighthouse.Icons = [
     Icon32 = { Extension.Contents("Connector32.png"), Extension.Contents("Connector40.png"), Extension.Contents("Connector48.png"), Extension.Contents("Connector64.png") }
 ];
 
-Microsoft365Lighthouse.Type = type function (
-        connectionName as (type text meta [
-            Documentation.FieldCaption = "Connection Friendly Name",
+Microsoft365Lighthouse.ContentType = type function (
+        tenantName as (type text meta [
+            Documentation.FieldCaption = "Tenant name",
             Documentation.FieldDescription = "A friendly name to identify your tenant",
             Documentation.SampleValues = {"Contoso - US, Contoso - EMEA, or Contoso APAC"}
         ]),
-        optional tenants as (type list meta [
-            Documentation.FieldCaption = "List of Tenants",
-            Documentation.FieldDescription = "The list of tenants used by the functions",
-            Documentation.SampleValues = {"14be956d-744d-4c76-9c22-e61e28d377e5, 2e5cb289-2986-4f15-bc8e-56d7157210f8"}
+        tenantType as (Text.Type meta [        
+            Documentation.FieldCaption = " Select the type of tenant",
+            Documentation.FieldDescription = "Specifies the type of tenant being used",
+            Documentation.AllowedValues = TenantType,
+            DataSource.Path = false
         ])
     ) 
     as table meta [
@@ -1639,10 +1647,22 @@ MyResellersCustomers = (tenants as list, operation as number, optional query as 
 // Navigation 
         
 [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
-shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.Type);
+shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.ContentType);
 
-NavigationTable = (friendlyName as text, optional tenants as list) as table =>
+NavigationTable = (tenantName as text, tenantType as text) as table =>
     let
+        listOfTenants = if(Text.Contains(tenantType, "CSP", Comparer.OrdinalIgnoreCase)) then 
+                let 
+                    contracts = Rest.GetPages(msgraph_endpoint & "v1.0/contracts?$select=customerId", GetAccessToken()),
+                    result = if (Table.HasColumns(contracts, {"customerId"})) then 
+                            contracts[customerId]
+                        else 
+                           error Error.Record("No customers where discovered", "Please verify that you used your partner credentials used to connect or specify a list of customer Azure Active Directory tenant identifiers.")
+                in
+                    result
+            else
+                Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
+
         GetNestedNavigationTable = (input as table) as table =>
             let
                 // Select the only column needed from the input for this function
@@ -1658,18 +1678,6 @@ NavigationTable = (friendlyName as text, optional tenants as list) as table =>
                 navTable = Table.ToNavigationTable(withIsLeaf, {"Name"}, "Name", "Data", "ItemKind", "ItemName", "IsLeaf")
             in 
                 navTable,
-
-        listOfTenants = if(tenants <> null and not List.IsEmpty(tenants)) then 
-                tenants
-            else 
-                let 
-                    contracts = Rest.GetPages(msgraph_endpoint & "v1.0/contracts?$select=customerId", GetAccessToken()),
-                    result = if (Table.HasColumns(contracts, {"customerId"})) then 
-                            contracts[customerId]
-                        else 
-                           error Error.Record("No customers where discovered or specified", "Please verify that you used your partner credentials used to connect or specify a list of customer Azure Active Directory tenant identifiers.")
-                in
-                    result,
 
         // Group the items in the entity table by workload because those will be the folders in our navigation table
         grouped = Table.Group(EntityTable, {"Workload"}, {{"Nested", each _}}),
