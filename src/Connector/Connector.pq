@@ -547,8 +547,6 @@ Filter.GetStatement = (expression as record) =>
                 Filter.GetFieldAccessStatement(expression)
             else if (kind = "Identifier") then 
                 Filter.GetIdentifierStatement(expression)
-            else if (kind = "Invocation") then 
-                Filter.GetInvocationStatement(expression)
             else
                 ...
     in 
@@ -581,26 +579,6 @@ Filter.GetIdentifierStatement = (expression as record) =>
         value = Value.FromConstant(expression[Value])
     in
         value;
-
-Filter.GetInvocationStatement = (expression as record) =>
-    let 
-        // TODO - Need to check for function operations that can be handled by the API
-        // e.g., filter=startswith(displayName, 'al') 
-        // e.g., filter=endsWith(displayName, 'wil')
-        // e.g., lambda expressions all and any
-        // e.g., filter=categories/any(a:a eq 'Blue category'
-
-        // TODO - Some functions will need be invoked client side instead of server 
-        // value = Value.FromConstant(Expression.Evaluate("#date(2000, 1, 1)", #shared))
-        
-        args = List.Transform(expression[Arguments], (a) => Filter.GetStatement(a)),
-        func = expression[Function][Value],
-        
-        // output = Function.Invoke(func, args)
-
-        output = "not currently supported"
-    in 
-        output;
 
 // Helper 
 
