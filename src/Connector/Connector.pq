@@ -155,6 +155,24 @@ TokenMethod = (tokenUri, grantType, tokenField, parameter, optional scope as tex
 // Azure Active Directory
 
 /*
+* Gets a table of application registrations for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of application registrations for the speicified tenants.
+*/
+Applications = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/applications", {"Directory.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "application", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
+        result;
+
+/*
 * Gets a table of conditional access policies for the specified list of tenants.
 *
 * tenants: A list of tenants used when requesting data.
@@ -310,6 +328,24 @@ LicenseDetails = (tenants as list, operation as number, optional query as text, 
         result;
 
 /*
+* Gets a table of service principals for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of service principals for the speicified tenants.
+*/
+ServicePrincipals = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let
+        request = Request.Build(tenants, msgraph_endpoint, "v1.0/servicePrincipals", {"Directory.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "servicePrincipal", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in 
+        result;
+
+/*
 * Gets a table of authentication activities for users in the specified list of tenants.
 *
 * tenants: A list of tenants used when requesting data.
@@ -369,12 +405,14 @@ Users = (tenants as list, operation as number, optional query as text, optional 
 
 EntityTable = #table({"Workload", "Name", "Action"}, {
     // Azure Active Directory 
-    { "AzureAd", "ConditionalAccessPolicies", ConditionalAccessPolicies},
+    { "AzureAd", "Applications", Applications },
+    { "AzureAd", "ConditionalAccessPolicies", ConditionalAccessPolicies },
     { "AzureAd", "Domains", Domains },
     { "AzureAd", "Devices", Devices },
     { "AzureAd", "Groups", Groups },
     { "AzureAd", "IdentitySecurityDefaultsEnforcementPolicy", IdentitySecurityDefaultsEnforcementPolicy },
     { "AzureAd", "LicenseDetails", LicenseDetails },
+    { "AzureAd", "ServicePrincipals", ServicePrincipals },
     { "AzureAd", "SignIns", SignIns },
     { "AzureAd", "SubscribedSkus", SubscribedSkus },
     { "AzureAd", "Users", Users },
