@@ -209,6 +209,52 @@ CredentialUserRegistrationDetails = (tenants as list, operation as number, optio
         result;
 
 /*
+* Gets a table of directory role membership for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of directory role membership for the specified list of tenants.
+*/
+DirectoryRoleMembers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "directoryObject", schema, "tenantId = text, roleId = text"),
+
+        result = if(operation = OperationType[SchemaOnly]) then 
+                 Request.GetSchema(requestSchema)
+            else
+                let
+                    request = Request.Build(
+                        tenants, 
+                        msgraph_endpoint, 
+                        "v1.0/directoryRoles?$select=id",
+                        {"Directory.Read.All"}),
+
+                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
+                    renamed = Table.RenameColumns(data, {"id", "roleId"}, MissingField.Ignore),
+
+                    // Ensure the tenantId and userId values are not present in the select portion of query string.
+                    // Since the query string will be appended to the batch request these values will not present in that dataset.
+                    newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "roleId"}, query),
+
+                    batchRequests = Request.BuildBatches(
+                        renamed, 
+                        msgraph_endpoint & "v1.0/$batch",
+                        {"Directory.Read.All"}, 
+                        each if([userId] = null) then 
+                                null
+                            else 
+                                Request.AppendQuery("/directoryRoles/" & [roleId] & "/members", newQuery)),
+
+                     result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
+                in
+                    result
+    in 
+        result;
+
+/*
 * Gets a table of devices for the specified list of tenants.
 *
 * tenants: A list of tenants used when requesting data.
@@ -407,6 +453,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     // Azure Active Directory 
     { "AzureAd", "Applications", Applications },
     { "AzureAd", "ConditionalAccessPolicies", ConditionalAccessPolicies },
+    { "AzureAd", "DirectoryRoleMembers", DirectoryRoleMembers },
     { "AzureAd", "Domains", Domains },
     { "AzureAd", "Devices", Devices },
     { "AzureAd", "Groups", Groups },
@@ -439,6 +486,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "EndpointManager", "DeviceCompliancePolicyStates", DeviceCompliancePolicyStates },
     { "EndpointManager", "DeviceConfigurationProfiles", DeviceConfigurationProfiles },
     { "EndpointManager", "DeviceConfigurationStates", DeviceConfigurationStates },
+    { "EndpointManager", "DeviceEnrollmentConfigurations", DeviceEnrollmentConfigurations },
     { "EndpointManager", "DeviceManagementAuditEvents", DeviceManagementAuditEvents },
     { "EndpointManager", "DeviceManagementIntents", DeviceManagementIntents },
     { "EndpointManager", "DeviceManagementIntentSettings", DeviceManagementIntentSettings },
@@ -1025,6 +1073,24 @@ DeviceConfigurationStates = (tenants as list, operation as number, optional quer
                 in
                     result
     in 
+        result;
+
+/*
+* Gets a table of device management audit events for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of device management audit events for the specified list of tenants.
+*/
+DeviceEnrollmentConfigurations = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        request = Request.Build(tenants, msgraph_endpoint, "beta/deviceEnrollmentConfigurations", {"DeviceManagementServiceConfig.Read.All"}, query), 
+        requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "deviceEnrollmentConfiguration", schema),
+        result = Request.Execute(operation, request, true, requestSchema)
+    in
         result;
 
 /*
