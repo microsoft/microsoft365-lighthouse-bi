@@ -1,0 +1,45 @@
+strategy:
+  matrix:
+    Windows:
+      imageName: 'windows-latest'
+
+trigger:
+- master
+
+pool:
+  vmImage: $(imageName)
+
+variables:
+  buildConfiguration: 'Release'
+
+steps:
+- task: CredScan@2
+  displayName: CredScan
+  inputs:
+    toolMajorVersion: 'V2'
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
+- task: PoliCheck@1
+  displayName: PoliCheck
+  inputs:
+    inputType: 'Basic'
+    targetType: 'F'
+    targetArgument: '$(Build.SourcesDirectory)'
+    result: 'PoliCheck.xml'
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
+- task: BinSkim@3
+  displayName: BinSkim
+  inputs:
+    InputType: 'Basic'
+    Function: 'analyze'
+    AnalyzeTarget: 'artifacts\$(buildConfiguration)\*.dll;'
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
+- task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@1
+  displayName: 'Post Analysis'
+  inputs:
+    BinSkim: true
+    CredScan: true
+    PoliCheck: true
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
