@@ -162,7 +162,7 @@ TokenMethod = (tokenUri, grantType, tokenField, parameter, optional scope as tex
 * query: An optional value that represents the query string to be used when requesting data.
 * schema: An optional value that represents the schema of the resulting table.
 *
-* Returns a table of application registrations for the speicified tenants.
+* Returns a table of application registrations for the specified tenants.
 */
 Applications = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
@@ -180,7 +180,7 @@ Applications = (tenants as list, operation as number, optional query as text, op
 * query: An optional value that represents the query string to be used when requesting data.
 * schema: An optional value that represents the schema of the resulting table.
 *
-* Returns a table of conditional access policies for the speicified tenants.
+* Returns a table of conditional access policies for the specified tenants.
 */
 ConditionalAccessPolicies = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
@@ -206,52 +206,6 @@ CredentialUserRegistrationDetails = (tenants as list, operation as number, optio
         requestSchema = Request.BuildSchema(msgraph_endpoint & "beta", "credentialUserRegistrationDetails", schema),
         result = Request.Execute(operation, request, true, requestSchema)
     in
-        result;
-
-/*
-* Gets a table of directory role membership for the specified list of tenants.
-*
-* tenants: A list of tenants used when requesting data.
-* operation: The type of request operation to perform. 
-* query: An optional value that represents the query string to be used when requesting data.
-* schema: An optional value that represents the schema of the resulting table.
-*
-* Returns a table of directory role membership for the specified list of tenants.
-*/
-DirectoryRoleMembers = (tenants as list, operation as number, optional query as text, optional schema as type) =>
-    let 
-        requestSchema = Request.BuildSchema(msgraph_endpoint & "v1.0", "directoryObject", schema, "tenantId = text, roleId = text"),
-
-        result = if(operation = OperationType[SchemaOnly]) then 
-                 Request.GetSchema(requestSchema)
-            else
-                let
-                    request = Request.Build(
-                        tenants, 
-                        msgraph_endpoint, 
-                        "v1.0/directoryRoles?$select=id",
-                        {"Directory.Read.All"}),
-
-                    data = Request.Execute(OperationType[Request], request, true, type table[tenantId = text, id = text]),
-                    renamed = Table.RenameColumns(data, {"id", "roleId"}, MissingField.Ignore),
-
-                    // Ensure the tenantId and userId values are not present in the select portion of query string.
-                    // Since the query string will be appended to the batch request these values will not present in that dataset.
-                    newQuery = Request.UpdateQueryParameter("$select", {"tenantId", "roleId"}, query),
-
-                    batchRequests = Request.BuildBatches(
-                        renamed, 
-                        msgraph_endpoint & "v1.0/$batch",
-                        {"Directory.Read.All"}, 
-                        each if([userId] = null) then 
-                                null
-                            else 
-                                Request.AppendQuery("/directoryRoles/" & [roleId] & "/members", newQuery)),
-
-                     result = Request.ExecuteBatch(operation, batchRequests, requestSchema)
-                in
-                    result
-    in 
         result;
 
 /*
@@ -381,7 +335,7 @@ LicenseDetails = (tenants as list, operation as number, optional query as text, 
 * query: An optional value that represents the query string to be used when requesting data.
 * schema: An optional value that represents the schema of the resulting table.
 *
-* Returns a table of service principals for the speicified tenants.
+* Returns a table of service principals for the specified tenants.
 */
 ServicePrincipals = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let
@@ -453,7 +407,6 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     // Azure Active Directory 
     { "AzureAd", "Applications", Applications },
     { "AzureAd", "ConditionalAccessPolicies", ConditionalAccessPolicies },
-    { "AzureAd", "DirectoryRoleMembers", DirectoryRoleMembers },
     { "AzureAd", "Domains", Domains },
     { "AzureAd", "Devices", Devices },
     { "AzureAd", "Groups", Groups },
@@ -547,7 +500,7 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
 * 
 * entity: Name of the action to perform.
 *
-* Returns a function that represnts the action to perform.
+* Returns a function that represents the action to perform.
 */
 GetActionForEntity = (entity as text) =>
     try 
@@ -800,14 +753,14 @@ SecureScoreControlProfiles = (tenants as list, operation as number, optional que
 // Microsoft Endpoint Manager
 
 /*
-* Gets a table of Andriod managed store account enterprise settings for the specified list of tenants.
+* Gets a table of Android managed store account enterprise settings for the specified list of tenants.
 *
 * tenants: A list of tenants used when requesting data.
 * operation: The type of request operation to perform. 
 * query: An optional value that represents the query string to be used when requesting data.
 * schema: An optional value that represents the schema of the resulting table.
 *
-* Returns a table of Andriod managed store account enterprise settings for the specified list of tenants.
+* Returns a table of Android managed store account enterprise settings for the specified list of tenants.
 */
 AndroidManagedStoreAccountEnterpriseSettings = (tenants as list, operation as number, optional query as text, optional schema as type) =>
     let 
@@ -1248,7 +1201,7 @@ GroupPolicyConfigurations = (tenants as list, operation as number, optional quer
         result;
 
 /*
-* Gets a table of group policy defintions for the specified list of tenants.
+* Gets a table of group policy definitions for the specified list of tenants.
 *
 * tenants: A list of tenants used when requesting data.
 * operation: The type of request operation to perform. 
@@ -1755,7 +1708,7 @@ View = (entity as text, tenants as list) as table =>
 
                     value = if(state[FilterSelector]? <> null) then 
                              let 
-                                // The resource not found execption can be encountered when filtering across multiple tenants. 
+                                // The resource not found exception can be encountered when filtering across multiple tenants. 
                                 // While this is expected because the filter will be applied to each tenant specified, it can 
                                 // result in an unexpected error to thrown when filtering. So, we are remove all rows with errors
                                 // before applying the row selector to the rows.
@@ -2418,10 +2371,10 @@ Request.AppendQuery = (url as text, optional query as text) =>
 * Builds a table and populates with requests.
 *
 * tenants: List of tenants used to construct the table of requests.
-* endpoint: The endpoint of the API to be used when contructing the requests.
+* endpoint: The endpoint of the API to be used when constructing the requests.
 * relativeUrl: The relative URL to be used when constructing the requests.
 * scopes: A list of permissions that will be used when accessing the data.
-* query: An optional value that represents the query string parameters to be used when contructing the requests.
+* query: An optional value that represents the query string parameters to be used when constructing the requests.
 * generator: An optional function used to generate the address for each request.
 *
 * Returns a table that has been populated with requests.
@@ -2448,12 +2401,12 @@ Request.Build = (tenants as list, endpoint as text, relativeUrl as text, scopes 
         result;
 
 /*
-* Builds a table thhat contains batch requests.
+* Builds a table that contains batch requests.
 *
 * input: 
 * endpoint:
 * scope:
-* gennerator:
+* generator:
 *
 * Returns a table that contains batch requests.
 */
@@ -2496,7 +2449,7 @@ Request.BuildBatches = (input as table, endpoint as text, scopes as any, generat
 /*
 * Builds the entry to request the schema if not known.
 * 
-* endpoint: The address where the metedata for the schema can be found.
+* endpoint: The address where the metadata for the schema can be found.
 * resource: Name of the resource type.
 * schemaType: An optional value that represents the known schema.
 * additional: An optional value that represent any additional fields that should be included.
@@ -2668,7 +2621,7 @@ Request.ExecuteBatch = (operation as number, requests as table, optional schema 
                                 fields = Record.FieldNames(Type.RecordFields(Type.TableRow(resolvedSchema))),
                                 difference = List.Difference(fields, Table.ColumnNames(withErrors)),
 
-                                // Add a new column that contians a table with the expected columns.
+                                // Add a new column that contains a table with the expected columns.
                                 data = Table.AddColumn(withErrors, "Column1", each AddErrorToEachField(_, difference)),
                                 // Expand the new column, so the final result will have error value in each column for the given row.
                                 withDataExpanded = Table.ExpandTableColumn(data, "Column1", difference),

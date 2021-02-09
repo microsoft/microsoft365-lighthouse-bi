@@ -4,12 +4,11 @@ Through this solution partners are able to consume responses from various Micros
 
 ## Preview
 
-We are excited to share an early preview of this data connector for Power BI. During the time there will be a handful of actions that you will need to perform manually to get started.
+We are excited to share an early preview of this data connector for Power BI. Initially you will need to perform the following actions to utilize this connector
 
-### Getting started
+1. Create an Azure Active Directory application and configure it for this connector
+2. Update the identifier in the *client_id* file to match the application identifier for your Azure Active Directory application
+3. Compile the connector using the *Power Query* extension for Visual Studio
+4. Copy the compiled extension file into the `[Documents]\Power BI Desktop\Custom Connectors` directory
 
-Perform the following to install the data connector
-
-1. Download the latest preview of this data connector for Power BI from [here](https://aka.ms/microsoft365/lighthouse-bi/latest-preview)
-2. Copy the extension file into the `[Documents]\Power BI Desktop\Custom Connectors` directory
-3. Open Power BI Desktop
+In the near future we will be simplifying this process, but for now the above steps are required.
