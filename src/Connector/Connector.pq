@@ -1904,9 +1904,9 @@ View = (entity as text, tenants as list) as table =>
 
 // Network
 
-Rest.GetContents = (url as text, token as text, isPaged as logical, optional schema as type) =>
+Rest.GetContents = (url as text, token as text, isPaged as logical, optional schema as type, optional continuationToken as text) =>
     let 
-        response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token),
+        response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, continuationToken),
         document = Json.Document(response), 
         metadata = Value.Metadata(response),
 
@@ -1964,7 +1964,7 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
                             in
                                 value
                 in 
-                    data meta [NextLink = nextLink]
+                    data meta [ODataFeed = isODataFeed, NextLink = nextLink]
         in
             result;
 
@@ -1996,16 +1996,36 @@ Rest.GetPages = (url as text, token as text, optional schema as type) =>
     let
         response = Table.GenerateByPage((previous) => 
             let
-                // if previous is null, then this is our first page of data
-                nextLink = if (previous = null) then url else Value.Metadata(previous)[NextLink]?,
-                // if next link was set to null by the previous call, we know we have no more data
-                page = if (nextLink <> null) then Rest.GetContents(nextLink, token, true, schema) else null
+                // Extract metadata if a previous request has been made
+                metadata = if(previous = null) then null else Value.Metadata(previous), 
+                // If the metadata variable is empty that means this is the first reqeust
+                nextLink = if(metadata = null) then 
+                        url 
+                    // Check if the metadata reflects the request supports OData, if not then the request is for Partner Center
+                    else if (metadata[ODataFeed]? <> null and metadata[ODataFeed] = true) then 
+                        let
+                            uri = metadata[NextLink][uri],
+                            value = partnercenter_endpoint + "v1" + uri
+                        in 
+                            value
+                    else metadata[NextLink]?,
+                // If the metadata variable is not null and the previous request did support OData, then we need to extract the continuation token
+                continuationToken = if(metadata <> null and metadata[ODataFeed] = true) then 
+                        null 
+                    else
+                        let 
+                            headers = metadata[NextLink][headers]?, 
+                            value = if(headers = null) then null else headers{0}[value]
+                        in 
+                            value,
+                // If next link was set to null by the previous call, we know we have no more data
+                page = if (nextLink <> null) then Rest.GetContents(nextLink, token, true, schema, continuationToken) else null
             in
                 page)
     in 
         response;
 
-Rest.Request = (url as text, accept, token as text, optional content as text) => 
+Rest.Request = (url as text, accept, token as text, optional content as text, optional continuationToken as text) => 
     let
        baseHeaders = [
             #"Accept" = accept,
@@ -2018,10 +2038,12 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
             ManualStatusHandling = {400, 401, 403, 404}
         ],
 
-        headers = if(content <> null) then Record.AddField(baseHeaders, "Content-Type", "application/json") else baseHeaders,
+        headersWithContent = if(content <> null) then Record.AddField(baseHeaders, "Content-Type", "application/json") else baseHeaders,
+        headersWithContinuationToken = if(continuationToken <> null) then Record.AddField(headersWithContent, "MS-ContinuationToken", continuationToken) else headersWithContent,
+
         options = if(content <> null) then Record.AddField(baseOptions, "Content", Text.ToBinary(content)) else baseOptions, 
 
-        response = Web.Contents(url, Record.AddField(options, "Headers", headers)),
+        response = Web.Contents(url, Record.AddField(options, "Headers", headersWithContinuationToken)),
         buffered = Binary.Buffer(response),
         status = Value.Metadata(response)[Response.Status]
     in 
