@@ -2,7 +2,7 @@
 
 // Global variables
 
-[Version = "0.2102.1"]
+[Version = "0.2108.1"]
 
 authorize_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize";
 client_id = Text.FromBinary(Extension.Contents("client_id"));
@@ -2002,19 +2002,20 @@ Rest.GetPages = (url as text, token as text, optional schema as type) =>
                 nextLink = if(metadata = null) then 
                         url 
                     // Check if the metadata reflects the request supports OData, if not then the request is for Partner Center
-                    else if (metadata[ODataFeed]? <> null and metadata[ODataFeed] = true) then 
+                    else if (metadata[ODataFeed]? <> null and metadata[ODataFeed] = true and metadata[NextLink]? <> null) then 
                         let
-                            uri = metadata[NextLink][uri],
-                            value = partnercenter_endpoint + "v1" + uri
+                            uri = metadata[NextLink][uri]?,
+                            value = if(uri = null) then null else partnercenter_endpoint + "v1" + uri
                         in 
                             value
                     else metadata[NextLink]?,
+
                 // If the metadata variable is not null and the previous request did support OData, then we need to extract the continuation token
                 continuationToken = if(metadata <> null and metadata[ODataFeed] = true) then 
                         null 
                     else
                         let 
-                            headers = metadata[NextLink][headers]?, 
+                            headers = if(metadata[NextLink]? = null) then null else metadata[NextLink][headers]?, 
                             value = if(headers = null) then null else headers{0}[value]
                         in 
                             value,
@@ -2172,7 +2173,7 @@ Resellers = (tenants as list, operation as number, optional query as text, optio
                 Request.Execute(operation, request, true, requestSchema)
             else 
                 let 
-                    data = Request.Execute(operation, request, true, requestSchema),
+                    data = Request.Execute(operation, request, true),
                     rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
                 in 
                     rename
@@ -2194,7 +2195,7 @@ ResellerCustomers = (tenants as list, operation as number, optional query as tex
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
         listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
 
-        requestSchema = type table [partnerTenantId = text, resellerId = text, id = text, companyProfile = text, relationshipToPartner = text],
+        requestSchema = type table [partnerTenantId = text, resellerId = text, id = text, companyProfile = any, relationshipToPartner = text],
 
         result = if(operation = OperationType[SchemaOnly]) then 
                  Request.GetSchema(requestSchema)
@@ -2215,7 +2216,7 @@ ResellerCustomers = (tenants as list, operation as number, optional query as tex
                         "request",
                         each partnercenter_endpoint & "v1/customers?size=0&filter=%7B%22Field%22%3A%22IndirectReseller%22%2C%22Value%22%3A%22" & [resellerId] & "%22%2C%22Operator%22%3A%22starts_with%22%7D"),
 
-                    data = Request.Execute(OperationType[Request], appendRequest, true, requestSchema), 
+                    data = Request.Execute(OperationType[Request], appendRequest, true), 
                     rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
                  in 
                      rename
