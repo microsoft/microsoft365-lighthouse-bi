@@ -1906,7 +1906,7 @@ View = (entity as text, tenants as list) as table =>
 
 Rest.GetContents = (url as text, token as text, isPaged as logical, optional schema as type, optional continuationToken as text) =>
     let 
-        response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, continuationToken),
+        response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, null, continuationToken),
         document = Json.Document(response), 
         metadata = Value.Metadata(response),
 
@@ -2002,10 +2002,10 @@ Rest.GetPages = (url as text, token as text, optional schema as type) =>
                 nextLink = if(metadata = null) then 
                         url 
                     // Check if the metadata reflects the request supports OData, if not then the request is for Partner Center
-                    else if (metadata[ODataFeed]? <> null and metadata[ODataFeed] = true and metadata[NextLink]? <> null) then 
+                    else if (metadata[ODataFeed] = false and metadata[NextLink]? <> null) then 
                         let
                             uri = metadata[NextLink][uri]?,
-                            value = if(uri = null) then null else partnercenter_endpoint + "v1" + uri
+                            value = if(uri = null) then null else partnercenter_endpoint & "v1" & uri
                         in 
                             value
                     else metadata[NextLink]?,
