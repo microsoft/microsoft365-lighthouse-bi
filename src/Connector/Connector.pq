@@ -2,7 +2,7 @@
 
 // Global variables
 
-[Version = "0.2102.1"]
+[Version = "0.2108.1"]
 
 authorize_uri = "https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize";
 client_id = Text.FromBinary(Extension.Contents("client_id"));
@@ -1904,9 +1904,9 @@ View = (entity as text, tenants as list) as table =>
 
 // Network
 
-Rest.GetContents = (url as text, token as text, isPaged as logical, optional schema as type) =>
+Rest.GetContents = (url as text, token as text, isPaged as logical, optional schema as type, optional continuationToken as text) =>
     let 
-        response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token),
+        response = Rest.Request(url, "application/json;odata.metadata=minimal;odata.streaming=false;IEEE754Compatible=false", token, null, continuationToken),
         document = Json.Document(response), 
         metadata = Value.Metadata(response),
 
@@ -1964,7 +1964,7 @@ Rest.GetContents = (url as text, token as text, isPaged as logical, optional sch
                             in
                                 value
                 in 
-                    data meta [NextLink = nextLink]
+                    data meta [ODataFeed = isODataFeed, NextLink = nextLink]
         in
             result;
 
@@ -1996,16 +1996,37 @@ Rest.GetPages = (url as text, token as text, optional schema as type) =>
     let
         response = Table.GenerateByPage((previous) => 
             let
-                // if previous is null, then this is our first page of data
-                nextLink = if (previous = null) then url else Value.Metadata(previous)[NextLink]?,
-                // if next link was set to null by the previous call, we know we have no more data
-                page = if (nextLink <> null) then Rest.GetContents(nextLink, token, true, schema) else null
+                // Extract metadata if a previous request has been made
+                metadata = if(previous = null) then null else Value.Metadata(previous), 
+                // If the metadata variable is empty that means this is the first reqeust
+                nextLink = if(metadata = null) then 
+                        url 
+                    // Check if the metadata reflects the request supports OData, if not then the request is for Partner Center
+                    else if (metadata[ODataFeed] = false and metadata[NextLink]? <> null) then 
+                        let
+                            uri = metadata[NextLink][uri]?,
+                            value = if(uri = null) then null else partnercenter_endpoint & "v1" & uri
+                        in 
+                            value
+                    else metadata[NextLink]?,
+
+                // If the metadata variable is not null and the previous request did support OData, then we need to extract the continuation token
+                continuationToken = if(metadata <> null and metadata[ODataFeed] = true) then 
+                        null 
+                    else
+                        let 
+                            headers = if(metadata[NextLink]? = null) then null else metadata[NextLink][headers]?, 
+                            value = if(headers = null) then null else headers{0}[value]
+                        in 
+                            value,
+                // If next link was set to null by the previous call, we know we have no more data
+                page = if (nextLink <> null) then Rest.GetContents(nextLink, token, true, schema, continuationToken) else null
             in
                 page)
     in 
         response;
 
-Rest.Request = (url as text, accept, token as text, optional content as text) => 
+Rest.Request = (url as text, accept, token as text, optional content as text, optional continuationToken as text) => 
     let
        baseHeaders = [
             #"Accept" = accept,
@@ -2018,10 +2039,12 @@ Rest.Request = (url as text, accept, token as text, optional content as text) =>
             ManualStatusHandling = {400, 401, 403, 404}
         ],
 
-        headers = if(content <> null) then Record.AddField(baseHeaders, "Content-Type", "application/json") else baseHeaders,
+        headersWithContent = if(content <> null) then Record.AddField(baseHeaders, "Content-Type", "application/json") else baseHeaders,
+        headersWithContinuationToken = if(continuationToken <> null) then Record.AddField(headersWithContent, "MS-ContinuationToken", continuationToken) else headersWithContent,
+
         options = if(content <> null) then Record.AddField(baseOptions, "Content", Text.ToBinary(content)) else baseOptions, 
 
-        response = Web.Contents(url, Record.AddField(options, "Headers", headers)),
+        response = Web.Contents(url, Record.AddField(options, "Headers", headersWithContinuationToken)),
         buffered = Binary.Buffer(response),
         status = Value.Metadata(response)[Response.Status]
     in 
@@ -2150,7 +2173,7 @@ Resellers = (tenants as list, operation as number, optional query as text, optio
                 Request.Execute(operation, request, true, requestSchema)
             else 
                 let 
-                    data = Request.Execute(operation, request, true, requestSchema),
+                    data = Request.Execute(operation, request, true),
                     rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
                 in 
                     rename
@@ -2172,7 +2195,7 @@ ResellerCustomers = (tenants as list, operation as number, optional query as tex
         // The list of tenants is ignored for this function because this should be invoked against the partner tenant.
         listOfTenants = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
 
-        requestSchema = type table [partnerTenantId = text, resellerId = text, id = text, companyProfile = text, relationshipToPartner = text],
+        requestSchema = type table [partnerTenantId = text, resellerId = text, id = text, companyProfile = any, relationshipToPartner = text],
 
         result = if(operation = OperationType[SchemaOnly]) then 
                  Request.GetSchema(requestSchema)
@@ -2193,7 +2216,7 @@ ResellerCustomers = (tenants as list, operation as number, optional query as tex
                         "request",
                         each partnercenter_endpoint & "v1/customers?size=0&filter=%7B%22Field%22%3A%22IndirectReseller%22%2C%22Value%22%3A%22" & [resellerId] & "%22%2C%22Operator%22%3A%22starts_with%22%7D"),
 
-                    data = Request.Execute(OperationType[Request], appendRequest, true, requestSchema), 
+                    data = Request.Execute(OperationType[Request], appendRequest, true), 
                     rename = Table.RenameColumns(data, {{"tenantId", "partnerTenantId"}}, MissingField.Ignore)
                  in 
                      rename

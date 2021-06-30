@@ -19,3 +19,8 @@
 -->
 
 # Change Log
+
+## 0.2108.1 - June 2021
+
+* Paging
+  * Addressed an issue where paging with Partner Center operations was not working as expected
