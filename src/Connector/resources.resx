@@ -126,6 +126,9 @@
   <data name="ButtonTitle" xml:space="preserve">
     <value>Microsoft 365 Lighthouse</value>
   </data>
+  <data name="Commerce" xml:space="preserve">
+    <value>Commerce</value>
+  </data>
   <data name="DataSourceDescription" xml:space="preserve">
     <value>This connector provides the ability to obtain data for your customers that is available through a Microsoft API. So, it can be analyzed or combined with any other data source.</value>
   </data>

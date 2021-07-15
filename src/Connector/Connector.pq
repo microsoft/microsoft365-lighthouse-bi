@@ -401,6 +401,47 @@ Users = (tenants as list, operation as number, optional query as text, optional 
     in 
         result;
 
+// Commerce
+
+/*
+* Gets a table of subscriptions from Partner Center for the specified list of tenants.
+*
+* tenants: A list of tenants used when requesting data.
+* operation: The type of request operation to perform. 
+* query: An optional value that represents the query string to be used when requesting data.
+* schema: An optional value that represents the schema of the resulting table.
+*
+* Returns a table of subscriptions from Partner Center for the specified list of tenants.
+*/
+Subscriptions = (tenants as list, operation as number, optional query as text, optional schema as type) =>
+    let 
+        requestSchema = type table [providerId = text, tenantId = text, id = text, offerId = text, entitlementId = text, offerName = text, friendlyName = text, quantity = number, unitType = text, creationDate = datetime, effectiveStartDate = datetime, commitmentEndDate = datetime, status = text, autoRenewEnabled = logical, isTrial = logical, partnerId = number],
+
+        result = if(operation = OperationType[SchemaOnly]) then 
+                 Request.GetSchema(requestSchema)
+            else
+                let
+                    request = Request.Build(
+                        tenants, 
+                        partnercenter_endpoint, 
+                        "subscriptions", 
+                        {"user_impersonation"}, 
+                        query, 
+                        each partnercenter_endpoint & "/v1/customers/" & [tenantId] & "/subscriptions"),
+
+                    organization = Rest.GetPages(msgraph_endpoint & "v1.0/organization?$select=id", GetAccessToken()),
+
+                    duplicate = Table.DuplicateColumn(request, "tenantId", "tempId"),
+                    transform = Table.TransformColumns(duplicate, {{"tenantId", each organization[id]{0}}}),
+                    execute = Request.Execute(OperationType[Request], transform, true, requestSchema),
+
+                    remove = Table.RemoveColumns(execute, "providerId", MissingField.Ignore),
+                    result = Table.RenameColumns(remove, {{"tenantId", "providerId"}, {"tempId", "tenantId"}}, MissingField.Ignore)
+                in
+                    result
+    in 
+        result;
+
 // Entities
 
 EntityTable = #table({"Workload", "Name", "Action"}, {
@@ -416,6 +457,9 @@ EntityTable = #table({"Workload", "Name", "Action"}, {
     { "AzureAd", "SignIns", SignIns },
     { "AzureAd", "SubscribedSkus", SubscribedSkus },
     { "AzureAd", "Users", Users },
+
+    // Commerce
+    { "Commerce", "Subscriptions", Subscriptions },
 
     // Identity Protection 
     { "IdentityProtection", "RiskDetections", RiskDetections },
