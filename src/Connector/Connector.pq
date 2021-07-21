@@ -62,7 +62,7 @@ Microsoft365Lighthouse.Icons = [
 ];
 
 Microsoft365Lighthouse.ContentType = type function (
-        tenantName as (type text meta [
+        tenantName as (Text.Type meta [
             Documentation.FieldCaption = "Tenant name",
             Documentation.FieldDescription = "A friendly name to identify your tenant",
             Documentation.SampleValues = {"Contoso - US, Contoso - EMEA, or Contoso APAC"}
@@ -71,6 +71,11 @@ Microsoft365Lighthouse.ContentType = type function (
             Documentation.FieldCaption = " Select the type of tenant",
             Documentation.FieldDescription = "Specifies the type of tenant being used",
             Documentation.AllowedValues = TenantType,
+            DataSource.Path = false
+        ]),
+        optional tenants as (List.Type meta [
+            Documentation.FieldCaption = "List of tenants",
+            Documentation.FieldDescription = "A list of tenants, where DAP is established, that will be used to scope the operations",
             DataSource.Path = false
         ])
     ) 
@@ -1651,9 +1656,11 @@ MyOrganization = (tenants as list, operation as number, optional query as text, 
 [DataSource.Kind="Microsoft365Lighthouse", Publish="Microsoft365Lighthouse.Publish"]
 shared Microsoft365Lighthouse.Contents =  Value.ReplaceType(NavigationTable, Microsoft365Lighthouse.ContentType);
 
-NavigationTable = (tenantName as text, tenantType as text) as table =>
+NavigationTable = (tenantName as text, tenantType as text, optional tenants as list) as table =>
     let
-        listOfTenants = if(Text.Contains(tenantType, "Cloud Solution Provider", Comparer.OrdinalIgnoreCase)) then 
+        listOfTenants = if(tenants <> null) then 
+                tenants
+            else if(Text.Contains(tenantType, "Cloud Solution Provider", Comparer.OrdinalIgnoreCase)) then 
                 let 
                     contracts = Rest.GetPages(msgraph_endpoint & "v1.0/contracts?$select=customerId", GetAccessToken()),
                     result = if (Table.HasColumns(contracts, {"customerId"})) then 
